@@ -226,6 +226,12 @@ class NewsSources(models.Model):
     url = models.URLField()
 
 
+class Comments(models.Model):
+    text = models.CharField(max_length=400)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    time = models.PositiveSmallIntegerField()
+
+
 class News(models.Model):
     title = models.CharField(max_length=100)
     body_text = models.TextField()
@@ -240,11 +246,3 @@ class News(models.Model):
     basketball_player = models.ManyToManyField(BasketballPlayer)
     football_team = models.ManyToManyField(FootballTeam)
     basketball_team = models.ManyToManyField(BasketballTeam)
-
-
-class Comments(models.Model):
-    text = models.CharField(max_length=400)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    time = models.PositiveSmallIntegerField()
-
-
