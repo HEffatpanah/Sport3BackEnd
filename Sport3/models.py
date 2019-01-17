@@ -6,44 +6,44 @@ from django.db import models
 
 
 class FootballLeague(models.Model):
-    name = models.CharField()
+    name = models.CharField(max_length=20)
 
 
 class BasketballLeague(models.Model):
-    name = models.CharField()
+    name = models.CharField(max_length=20)
 
 
 class FootballTeam(models.Model):
-    name = models.CharField()
+    name = models.CharField(max_length=40)
 
 
 class BasketballTeam(models.Model):
-    name = models.CharField()
+    name = models.CharField(max_length=40)
 
 
 class FootballPlayer(models.Model):
-    name = models.CharField()
+    name = models.CharField(max_length=40)
     birth_date = models.DateTimeField()
-    position = models.CharField()
+    position = models.CharField(max_length=20)
     photo = models.ImageField()
 
 
 class BasketballPlayer(models.Model):
-    name = models.CharField()
+    name = models.CharField(max_length=40)
     birth_date = models.DateTimeField()
-    position = models.CharField()
+    position = models.CharField(max_length=20)
     photo = models.ImageField()
 
 
 class FootballHalfSeason(models.Model):
     half = models.BooleanField()
-    name = models.CharField()
+    name = models.CharField(max_length=20)
     league = models.ManyToManyField(FootballLeague)
 
 
 class BasketballHalfSeason(models.Model):
     half = models.BooleanField()
-    name = models.CharField()
+    name = models.CharField(max_length=20)
     league = models.ManyToManyField(BasketballLeague)
 
 
@@ -107,14 +107,14 @@ class BasketballTeamMembers(models.Model):
 
 
 class FootballSubstitute(models.Model):
-    match = models.ForeignKey(Match, on_delete=models.CASCADE)
+    match = models.ForeignKey(FootballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
     in_out = models.BooleanField()  # 1 for in 0 for out
 
 
 class BasketballSubstitute(models.Model):
-    match = models.ForeignKey(Match, on_delete=models.CASCADE)
+    match = models.ForeignKey(BasketballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
     in_out = models.BooleanField()  # 1 for in 0 for out
@@ -123,14 +123,14 @@ class BasketballSubstitute(models.Model):
 class FootballMatchPlayersList(models.Model):
     team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
-    match = models.ForeignKey(Match, on_delete=models.CASCADE)
+    match = models.ForeignKey(FootballMatch, on_delete=models.CASCADE)
     main_substitute = models.BooleanField()  # 1 for main 0 for substitute
 
 
 class BasketballMatchPlayersList(models.Model):
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
     player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
-    match = models.ForeignKey(Match, on_delete=models.CASCADE)
+    match = models.ForeignKey(BasketballMatch, on_delete=models.CASCADE)
     main_substitute = models.BooleanField()  # 1 for main 0 for substitute
 
 
@@ -162,56 +162,56 @@ class BasketballHalfSeasonLeagueTeams(models.Model):
 
 
 class FootballGoal(models.Model):
-    match = models.ForeignKey(Match, on_delete=models.CASCADE)
+    match = models.ForeignKey(FootballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
 
 
 class FootballAssist(models.Model):
-    match = models.ForeignKey(Match, on_delete=models.CASCADE)
+    match = models.ForeignKey(FootballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
 
 
 class FootballCard(models.Model):
-    match = models.ForeignKey(Match, on_delete=models.CASCADE)
+    match = models.ForeignKey(FootballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
 
 
 class FootballPenalty(models.Model):
-    match = models.ForeignKey(Match, on_delete=models.CASCADE)
+    match = models.ForeignKey(FootballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
 
 
 class BasketballThreePoint(models.Model):
-    match = models.ForeignKey(Match, on_delete=models.CASCADE)
+    match = models.ForeignKey(BasketballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
 
 
 class BasketballTwoPoint(models.Model):
-    match = models.ForeignKey(Match, on_delete=models.CASCADE)
+    match = models.ForeignKey(BasketballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
 
 
 class BasketballPenaltyFault(models.Model):
-    match = models.ForeignKey(Match, on_delete=models.CASCADE)
+    match = models.ForeignKey(BasketballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
 
 
 class BasketballPenaltyFailed(models.Model):
-    match = models.ForeignKey(Match, on_delete=models.CASCADE)
+    match = models.ForeignKey(BasketballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
