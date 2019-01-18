@@ -49,9 +49,9 @@ class BasketballHalfSeason(models.Model):
 
 class Match(models.Model):
     best_player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
-    date = models.DateTimeField()
+    date_time = models.DateTimeField()
     league = models.ForeignKey(FootballLeague, on_delete=models.CASCADE)
-    team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
+
     half_season = models.ForeignKey(FootballHalfSeason, on_delete=models.CASCADE)
 
     class Meta:
@@ -59,6 +59,8 @@ class Match(models.Model):
 
 
 class FootballMatch(Match):
+    team1 = models.ForeignKey(FootballTeam, related_name='home_matches', on_delete=models.CASCADE)
+    team2 = models.ForeignKey(FootballTeam, related_name='away_matches', on_delete=models.CASCADE)
     team1_corners = models.PositiveSmallIntegerField()
     team2_corners = models.PositiveSmallIntegerField()
     team1_faults = models.PositiveSmallIntegerField()
@@ -72,6 +74,8 @@ class FootballMatch(Match):
 
 
 class BasketballMatch(Match):
+    team1 = models.ForeignKey(BasketballTeam, related_name='home_matches', on_delete=models.CASCADE)
+    team2 = models.ForeignKey(BasketballTeam, related_name='away_matches', on_delete=models.CASCADE)
     team1_two_points = models.PositiveSmallIntegerField()
     team2_two_points = models.PositiveSmallIntegerField()
     team1_three_points = models.PositiveSmallIntegerField()
@@ -226,6 +230,10 @@ class NewsSources(models.Model):
     url = models.URLField()
 
 
+class SiteUser(User):
+    news_number = models.SmallIntegerField()
+
+
 class Comments(models.Model):
     text = models.CharField(max_length=400)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -235,7 +243,7 @@ class Comments(models.Model):
 class News(models.Model):
     title = models.CharField(max_length=100)
     body_text = models.TextField()
-    date = models.DateField()
+    date_time = models.DateTimeField()
     tags = models.ManyToManyField(NewsTags)
     sources = models.ManyToManyField(NewsSources)
     football_league = models.ManyToManyField(FootballLeague)
