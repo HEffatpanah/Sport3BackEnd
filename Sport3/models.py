@@ -79,11 +79,12 @@ class FootballPlayer(Player):
         return (
             {
                 'memberInfo': [
-                    {'featureName': 'playerName', 'featureValue': 'علی', 'featureLink': 'https://www.google.com'},
-                    {'featureName': 'age', 'featureValue': 23, 'featureLink': None},
-                    {'featureName': 'position', 'featureValue': 'دفاع', 'featureLink': None},
+                    {'featureName': 'playerName', 'featureValue': self.name, 'featureLink': get_url('player', self)},
+                    {'featureName': 'age', 'featureValue': datetime.datetime.now().year - self.birth_date.year,
+                     'featureLink': None},
+                    {'featureName': 'position', 'featureValue': self.position, 'featureLink': None},
                     {'featureName': 'photo',
-                     'featureValue': 'http://www.gstatic.com/tv/thumb/persons/673351/673351_v9_ba.jpg',
+                     'featureValue': self.photo,
                      'featureLink': None},
                 ]
             }
@@ -92,6 +93,21 @@ class FootballPlayer(Player):
 
 class BasketballPlayer(Player):
     position = models.CharField(max_length=20)
+
+    def get_team_member_json(self):
+        return (
+            {
+                'memberInfo': [
+                    {'featureName': 'playerName', 'featureValue': self.name, 'featureLink': get_url('player', self)},
+                    {'featureName': 'age', 'featureValue': datetime.datetime.now().year - self.birth_date.year,
+                     'featureLink': None},
+                    {'featureName': 'position', 'featureValue': self.position, 'featureLink': None},
+                    {'featureName': 'photo',
+                     'featureValue': self.photo,
+                     'featureLink': None},
+                ]
+            }
+        )
 
 
 class HalfSeason(PolymorphicModel):
@@ -358,7 +374,7 @@ class FootballHalfSeasonLeagueTeams(HalfSeasonLeagueTeams):
 
 class BasketballHalfSeasonLeagueTeams(HalfSeasonLeagueTeams):
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
-    league = models.ForeignKey(FootballLeague, on_delete=models.CASCADE)
+    league = models.ForeignKey(BasketballLeague, on_delete=models.CASCADE)
     half_season = models.ForeignKey(BasketballHalfSeason, on_delete=models.CASCADE)
 
 
