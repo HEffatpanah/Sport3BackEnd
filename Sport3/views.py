@@ -8,12 +8,6 @@ from rest_framework.decorators import api_view
 from Sport3.models import *
 
 
-@api_view(['POST'])
-def home():
-    last_news = News.objects.order_by('-date_time')[:10]
-    football_matches = FootballMatch.objects.order_by('-date_time')
-
-
 @api_view(['GET', 'POST'])
 def home(request):
     print('eqerqwerqwerqwerqewr')
@@ -41,10 +35,10 @@ def news(request, news_id):
     for f in football_matches:
         json['tableBody'].append(f.create_match_summary_json())
     return JsonResponse(json)
-    if request.method == 'GET':
-        return JsonResponse({'ok': 'get'})
-    else:
-        return JsonResponse({'ok': 'post'})
+    # if request.method == 'GET':
+    #     return JsonResponse({'ok': 'get'})
+    # else:
+    #     return JsonResponse({'ok': 'post'})
 
 
 def player():
