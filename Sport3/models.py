@@ -146,7 +146,7 @@ class FootballMatch(Match):
     team1_assists = models.PositiveSmallIntegerField()
     team2_assists = models.PositiveSmallIntegerField()
 
-    def create_match_summary_json(self):
+    def get_match_summary_json(self):
         return (
             {
                 'team1Name': self.team1.name,
@@ -155,9 +155,9 @@ class FootballMatch(Match):
                 'team2Link': get_url('team', self.team2),
                 'team1Goal': self.team1_goals,
                 'team2Goal': self.team2_goals,
-                'date': 'امروز' if self.date_time.date() is datetime.datetime.now().date()
-                else 'دیروز' if self.date_time.date() is datetime.datetime.now().date() - datetime.timedelta(days=1)
-                else 'فردا' if self.date_time.date() is datetime.datetime.now().date() - datetime.timedelta(days=1)
+                'date': 'امروز' if self.date_time.date() == datetime.datetime.now().date()
+                else 'دیروز' if self.date_time.date() == datetime.datetime.now().date() - datetime.timedelta(days=1)
+                else 'فردا' if self.date_time.date() == datetime.datetime.now().date() - datetime.timedelta(days=1)
                 else self.date_time.date()
             }
         )
@@ -178,7 +178,7 @@ class BasketballMatch(Match):
     team1_penalty_faults = models.PositiveSmallIntegerField()
     team2_penalty_faults = models.PositiveSmallIntegerField()
     team1_final_score = models.PositiveSmallIntegerField()
-    team2_last_score = models.PositiveSmallIntegerField()
+    team2_final_score = models.PositiveSmallIntegerField()
     team1_first_quarter_score = models.PositiveSmallIntegerField()
     team2_first_quarter_score = models.PositiveSmallIntegerField()
     team1_second_quarter_score = models.PositiveSmallIntegerField()
@@ -190,7 +190,7 @@ class BasketballMatch(Match):
     team1_rebounds = models.PositiveSmallIntegerField()
     team2_rebounds = models.PositiveSmallIntegerField()
 
-    def create_match_summary_json(self):
+    def get_match_summary_json(self):
         return (
             {
                 'team1Name': self.team1.name,
@@ -198,10 +198,10 @@ class BasketballMatch(Match):
                 'team2Name': self.team2.name,
                 'team2Link': get_url('team', self.team2),
                 'team1Goal': self.team1_final_score,
-                'team2Goal': self.team2_last_score,
-                'date': 'امروز' if self.date_time.date() is datetime.datetime.now().date()
-                else 'دیروز' if self.date_time.date() is datetime.datetime.now().date() - datetime.timedelta(days=1)
-                else 'فردا' if self.date_time.date() is datetime.datetime.now().date() - datetime.timedelta(days=1)
+                'team2Goal': self.team2_final_score,
+                'date': 'امروز' if self.date_time.date() == datetime.datetime.now().date()
+                else 'دیروز' if self.date_time.date() == datetime.datetime.now().date() - datetime.timedelta(days=1)
+                else 'فردا' if self.date_time.date() == datetime.datetime.now().date() - datetime.timedelta(days=1)
                 else self.date_time.date()
             }
         )
