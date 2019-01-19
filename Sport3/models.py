@@ -140,6 +140,10 @@ class Match(PolymorphicModel):
     def __str__(self):
         return self.team1.name + '-' + self.team2.name
 
+    @property
+    def result(self):
+        pass
+
     def get_url_id(self):
         return self.team1.name + '-' + self.team2.name + str(self.uid)
 
@@ -181,6 +185,12 @@ class FootballMatch(Match):
     team2_goal_positions = models.PositiveSmallIntegerField()
     team1_assists = models.PositiveSmallIntegerField()
     team2_assists = models.PositiveSmallIntegerField()
+
+    @property
+    def result(self):
+        team1_goals = self.team1_goals
+        team2_goals = self.team2_goals
+        return 0 if team1_goals == team2_goals else -1 if team1_goals < team2_goals else 1
 
     def get_team_match_json(self):
         team1_goals = self.team1_goals
@@ -242,6 +252,12 @@ class BasketballMatch(Match):
     team2_fourth_quarter_score = models.PositiveSmallIntegerField()
     team1_rebounds = models.PositiveSmallIntegerField()
     team2_rebounds = models.PositiveSmallIntegerField()
+
+    @property
+    def result(self):
+        team1_scores = self.team1_final_score
+        team2_scores = self.team2_final_score
+        return 0 if team1_scores == team2_scores else -1 if team1_scores < team2_scores else 1
 
     def get_team_match_json(self):
         team1_final_score = self.team1_final_score
@@ -358,18 +374,59 @@ class HalfSeasonLeagueTeams(PolymorphicModel):
     def team(self):
         pass
 
-    def leauge(self):
+    def league(self):
         pass
 
     def half_season(self):
         pass
 
+    def get_league_teams(self):
+        pass
+
 
 class FootballHalfSeasonLeagueTeams(HalfSeasonLeagueTeams):
     drawn = models.PositiveSmallIntegerField()
-    team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
-    league = models.ForeignKey(FootballLeague, on_delete=models.CASCADE)
-    half_season = models.ForeignKey(FootballHalfSeason, on_delete=models.CASCADE)
+    team = models.ManyToManyField(FootballTeam)
+    league = models.ManyToManyField(FootballLeague)
+    half_season = models.ManyToManyField(FootballHalfSeason)
+
+    def get_league_teams(self):
+        json = {
+            'leagueName': self.league.name + self.half_season.name,
+            'tableName': self.league.name,
+            'header': ['تیم', 'بازیها', 'برد', 'مساوی', 'باخت', 'گل زده', 'گل خورده', 'تفاضل گل', 'امتیاز'],
+            'tableData': [],
+        }
+        # game_data = {'boats': [], }
+        # game_data['boats'].append({'name': None})
+        # json['tableData'].append({'nmw':None})
+        for team in self.team.all():
+            matchs = FootballMatch.objects.filter(League=self.league, HalfSeason=self.half_season, Team=team)
+            matchs_count = matchs.count()
+            win = matchs.filter(result=1).count()
+            draw = matchs.filter(result=0).count()
+            loose = matchs.filter(result=-1).count()
+            goalZ = 0
+            goalK = 0
+            for match in matchs:
+                goalZ += match.team1_goals if match.team1 == team else match.team2_goals
+                goalK += match.team2_goals if match.team1 == team else match.team1_goals
+            json['tableData'].append(
+                {
+                    'teamInfo': [
+                        {'featureName': 'teamName', 'featureValue': team.name,
+                         'featureLink': get_url('team', team)},
+                        {'featureName': 'matches', 'featureValue': matchs_count(), 'featureLink': None},
+                        {'featureName': 'win', 'featureValue': win, 'featureLink': None},
+                        {'featureName': 'draw', 'featureValue': draw, 'featureLink': None},
+                        {'featureName': 'loose', 'featureValue': loose, 'featureLink': None},
+                        {'featureName': 'goalZ', 'featureValue': goalZ, 'featureLink': None},
+                        {'featureName': 'goalK', 'featureValue': goalK, 'featureLink': None},
+                        {'featureName': 'goalSub', 'featureValue': goalZ - goalK, 'featureLink': None},
+                        {'featureName': 'score', 'featureValue': (win * 3) + draw, 'featureLink': None},
+                    ]
+                }
+            )
 
 
 class BasketballHalfSeasonLeagueTeams(HalfSeasonLeagueTeams):
