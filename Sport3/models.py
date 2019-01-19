@@ -1,5 +1,12 @@
+import datetime
+
 from django.contrib.auth.models import User
 from django.db import models
+from polymorphic.models import PolymorphicModel
+
+
+def get_url(action, id):
+    return 'http://127.0.0.1:3000/sport3/{0}/{1}'.format(action, id)
 
 
 # Create your models here.
@@ -47,15 +54,14 @@ class BasketballHalfSeason(models.Model):
     league = models.ManyToManyField(BasketballLeague)
 
 
-class Match(models.Model):
+class Match(PolymorphicModel):
     best_player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     date_time = models.DateTimeField()
     league = models.ForeignKey(FootballLeague, on_delete=models.CASCADE)
-
     half_season = models.ForeignKey(FootballHalfSeason, on_delete=models.CASCADE)
 
-    class Meta:
-        abstract = True
+    def create_match_summary_json(self):
+        pass
 
 
 class FootballMatch(Match):
@@ -71,6 +77,22 @@ class FootballMatch(Match):
     team2_goal_positions = models.PositiveSmallIntegerField()
     team1_assists = models.PositiveSmallIntegerField()
     team2_assists = models.PositiveSmallIntegerField()
+
+    def create_match_summary_json(self):
+        return (
+            {
+                'team1Name': self.team1.name,
+                'team1Link': get_url('team', self.team1.id),
+                'team2Name': self.team2.name,
+                'team2Link': get_url('team', self.team2.id),
+                'team1Goal': self.team1_goals,
+                'team2Goal': self.team2_goals,
+                'date': 'امروز' if self.date_time.date() is datetime.datetime.now().date()
+                else 'دیروز' if self.date_time.date() is datetime.datetime.now().date() - datetime.timedelta(days=1)
+                else 'فردا' if self.date_time.date() is datetime.datetime.now().date() - datetime.timedelta(days=1)
+                else self.date_time.date()
+            }
+        )
 
 
 class BasketballMatch(Match):
@@ -96,6 +118,9 @@ class BasketballMatch(Match):
     team2_fourth_quarter_score = models.PositiveSmallIntegerField()
     team1_rebounds = models.PositiveSmallIntegerField()
     team2_rebounds = models.PositiveSmallIntegerField()
+
+    def create_match_summary_json(self):
+        pass
 
 
 class FootballTeamMembers(models.Model):
@@ -221,6 +246,10 @@ class BasketballPenaltyFailed(models.Model):
     time = models.PositiveSmallIntegerField()
 
 
+class Photos(models.Model):
+    photo = models.ImageField()
+
+
 class NewsTags(models.Model):
     name = models.CharField(max_length=50)
 
@@ -240,17 +269,34 @@ class Comments(models.Model):
     time = models.PositiveSmallIntegerField()
 
 
-class News(models.Model):
+class News(PolymorphicModel):
     title = models.CharField(max_length=100)
     body_text = models.TextField()
     date_time = models.DateTimeField()
     tags = models.ManyToManyField(NewsTags)
     sources = models.ManyToManyField(NewsSources)
+    main_images = models.ForeignKey(Photos, on_delete=models.CASCADE)
+    more_images = models.ManyToManyField(Photos, related_name='news1')
+
+    def create_summary_news_json(self):
+        pass
+
+
+class FootballNews(News):
     football_league = models.ManyToManyField(FootballLeague)
-    basketball_league = models.ManyToManyField(BasketballLeague)
     football_match = models.ManyToManyField(FootballMatch)
-    basketball_match = models.ManyToManyField(BasketballMatch)
     football_player = models.ManyToManyField(FootballPlayer)
-    basketball_player = models.ManyToManyField(BasketballPlayer)
     football_team = models.ManyToManyField(FootballTeam)
+
+    def create_summary_news_json(self):
+        pass
+
+
+class BasketballNews(News):
+    basketball_league = models.ManyToManyField(BasketballLeague)
+    basketball_match = models.ManyToManyField(BasketballMatch)
+    basketball_player = models.ManyToManyField(BasketballPlayer)
     basketball_team = models.ManyToManyField(BasketballTeam)
+
+    def create_summary_news_json(self):
+        pass

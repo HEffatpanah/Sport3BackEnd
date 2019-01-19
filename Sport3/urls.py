@@ -1,9 +1,9 @@
-from django.urls import path
+from django.urls import path,re_path
 
 from Sport3 import views
 
 urlpatterns = [
-    path('', views.home, name='home'),
+    re_path(r'home[/]?', views.home, name='home'),
     path('news/<int:news_id>', views.news, name='news'),
     path('team/<int:team_id>', views.team, name='team'),
     path('player/<int:player_id>', views.player, name='player'),
