@@ -130,7 +130,7 @@ class FootballHalfSeason(HalfSeason):
 
 
 class BasketballHalfSeason(HalfSeason):
-    league = models.ManyToManyField(BasketballTeam)
+    league = models.ManyToManyField(BasketballLeague)
 
 
 class Match(PolymorphicModel):
