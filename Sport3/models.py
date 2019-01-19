@@ -63,6 +63,9 @@ class Player(PolymorphicModel):
     def get_url_id(self):
         return self.name + str(self.uid)
 
+    def get_team_member_json(self):
+        pass
+
     uid = models.UUIDField(default=uuid.uuid4(), editable=False)
     name = models.CharField(max_length=40)
     birth_date = models.DateTimeField()
@@ -71,6 +74,20 @@ class Player(PolymorphicModel):
 
 class FootballPlayer(Player):
     position = models.CharField(max_length=20)
+
+    def get_team_member_json(self):
+        return (
+            {
+                'memberInfo': [
+                    {'featureName': 'playerName', 'featureValue': 'علی', 'featureLink': 'https://www.google.com'},
+                    {'featureName': 'age', 'featureValue': 23, 'featureLink': None},
+                    {'featureName': 'position', 'featureValue': 'دفاع', 'featureLink': None},
+                    {'featureName': 'photo',
+                     'featureValue': 'http://www.gstatic.com/tv/thumb/persons/673351/673351_v9_ba.jpg',
+                     'featureLink': None},
+                ]
+            }
+        )
 
 
 class BasketballPlayer(Player):
@@ -125,7 +142,10 @@ class Match(PolymorphicModel):
     def half_season(self):
         pass
 
-    def create_match_summary_json(self):
+    def get_match_summary_json(self):
+        pass
+
+    def get_team_match_json(self):
         pass
 
 
@@ -145,6 +165,23 @@ class FootballMatch(Match):
     team2_goal_positions = models.PositiveSmallIntegerField()
     team1_assists = models.PositiveSmallIntegerField()
     team2_assists = models.PositiveSmallIntegerField()
+
+    def get_team_match_json(self):
+        team1_goals = self.team1_goals
+        team2_goals = self.team2_goals
+        score, status = (3, 'برد') if team1_goals > team2_goals else (1, 'مساوی') if team1_goals == team2_goals else (
+            0, 'باخت')
+        return (
+            {
+                'ownerTeamGoal': team1_goals,
+                'opponentTeamGoal': team2_goals,
+                'date': self.date_time.date(),
+                'score': score,
+                'status': status,
+                'opponent': self.team2.name,
+                'opponentLink': get_url('team', self.team2),
+            }
+        )
 
     def get_match_summary_json(self):
         return (
@@ -189,6 +226,23 @@ class BasketballMatch(Match):
     team2_fourth_quarter_score = models.PositiveSmallIntegerField()
     team1_rebounds = models.PositiveSmallIntegerField()
     team2_rebounds = models.PositiveSmallIntegerField()
+
+    def get_team_match_json(self):
+        team1_final_score = self.team1_final_score
+        team2_final_score = self.team2_final_score
+        score, status = (3, 'برد') if team1_final_score > team2_final_score else (
+            1, 'مساوی') if team1_final_score == team2_final_score else (0, 'باخت')
+        return (
+            {
+                'ownerTeamGoal': team1_final_score,
+                'opponentTeamGoal': team2_final_score,
+                'date': self.date_time.date(),
+                'score': score,
+                'status': status,
+                'opponent': self.team2.name,
+                'opponentLink': get_url('team', self.team2),
+            }
+        )
 
     def get_match_summary_json(self):
         return (
@@ -406,15 +460,25 @@ class News(PolymorphicModel):
     player = models.ManyToManyField(Player)
     team = models.ManyToManyField(Team)
 
-    def create_summary_news_json(self):
+    def get_news_summary_json(self):
         pass
 
 
 class FootballNews(News):
-    def create_summary_news_json(self):
-        pass
+    def get_news_summary_json(self):
+        return (
+            {
+                'title': self.title,
+                'link': get_url('news', self),
+            }
+        )
 
 
 class BasketballNews(News):
-    def create_summary_news_json(self):
-        pass
+    def get_news_summary_json(self):
+        return (
+            {
+                'title': self.title,
+                'link': get_url('news', self),
+            }
+        )
