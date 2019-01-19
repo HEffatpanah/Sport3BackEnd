@@ -1,7 +1,7 @@
 import json
 
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 
@@ -10,7 +10,6 @@ from Sport3.models import *
 
 @api_view(['GET', 'POST'])
 def home(request):
-    print('eqerqwerqwerqwerqewr')
     last_football_news = FootballNews.objects.order_by('-date_time')[:10]
     last_basketball_news = BasketballNews.objects.order_by('-date_time')[:10]
     football_matches = FootballMatch.objects.order_by('-date_time')[:50]
@@ -34,13 +33,13 @@ def home(request):
         }
     }
     for f in football_matches:
-        json['football']['matchesTable']['tableBody'].append(f.get_match_summary_json())
+        json['football']['matchesTable']['tableBody'].append(f.get_summary_json())
     for f in basketball_matches:
-        json['basketball']['matchesTable']['tableBody'].append(f.get_match_summary_json())
+        json['basketball']['matchesTable']['tableBody'].append(f.get_summary_json())
     for f in last_football_news:
-        json['football']['newsTable']['last'].append(f.get_news_summary_json())
+        json['football']['newsTable']['last'].append(f.get_summary_json())
     for f in last_basketball_news:
-            json['football']['newsTable']['last'].append(f.get_news_summary_json())
+        json['football']['newsTable']['last'].append(f.get_summary_json())
     return JsonResponse(json)
 
 
@@ -75,8 +74,11 @@ def league():
     pass
 
 
-def team():
-    pass
+@api_view(['GET'])
+def team(request, news_id):
+    res = get_object_or_404(Team, uuid=news_id)
+    res.get_json()
+    return JsonResponse(json)
 
 
 def login():
