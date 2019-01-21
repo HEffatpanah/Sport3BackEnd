@@ -39,7 +39,7 @@ def home(request):
     for f in last_football_news:
         json['football']['newsTable']['last'].append(f.get_summary_json())
     for f in last_basketball_news:
-        json['football']['newsTable']['last'].append(f.get_summary_json())
+        json['basketball']['newsTable']['last'].append(f.get_summary_json())
     return JsonResponse(json)
 
 
