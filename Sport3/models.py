@@ -2,7 +2,6 @@ import datetime
 import uuid
 from django.contrib.auth.models import User
 from django.db import models
-from django.db.models import Q
 from polymorphic.models import PolymorphicModel
 
 
@@ -46,7 +45,13 @@ class League(PolymorphicModel):
     def half_season(self):
         pass
 
-    def get_json(self):
+    def get_half_seasons_json(self):
+        pass
+
+    def get_teams_json(self):
+        pass
+
+    def get_matches_json(self):
         pass
 
     uid = models.UUIDField(default=uuid.uuid4(), editable=False)
@@ -59,14 +64,38 @@ class League(PolymorphicModel):
 class FootballLeague(League):
     half_season = models.ManyToManyField(FootballHalfSeason)
 
-    def get_json(self):
-        season = []
+    def get_matches_json(self):
+        json = {
+            'tableHeader': ['نام تیم', 'نتیجه', 'نام تیم', 'تاریخ'],
+            'tableBody': []
+        }
+        matches = FootballMatch.objects.filter(league=self)
+        for match in matches:
+            json['tableBody'].append(match.get_summary_json())
+        return json
+
+    def get_teams_json(self):
+        json = {
+            'leagueName': None,
+            'tableName': self.name,
+            'header': FootballHalfSeasonLeagueTeams.get_header(),
+            'tableData': None
+        }
+        half_seasons = self.half_season.all()
+        for half_season in half_seasons:
+            json['leagueName'] = self.name + '(' + half_season.name + ')'
+            teams = FootballHalfSeasonLeagueTeams.objects.filter(half_season=half_season, league=self)
+            for team in teams:
+                json['tableData'].append(team.get_json())
+        return json        
+
+    def get_half_seasons_json(self):
         half_season = self.half_season.all()
         for half_season in half_season:
-            season.append(str(self.name) + '(' + str(half_season.name) + ')')
+            half_season.append(str(self.name) + '(' + str(half_season.name) + ')')
         json = {
             'leagueName': self.name,
-            'sessions': season
+            'sessions': half_season
         }
         return json
 
@@ -74,14 +103,38 @@ class FootballLeague(League):
 class BasketballLeague(League):
     half_season = models.ManyToManyField(BasketballHalfSeason)
 
-    def get_json(self):
-        season = []
+    def get_matches_json(self):
+        json = {
+            'tableHeader': ['نام تیم', 'نتیجه', 'نام تیم', 'تاریخ'],
+            'tableBody': []
+        }
+        matches = FootballMatch.objects.filter(league=self)
+        for match in matches:
+            json['tableBody'].append(match.get_summary_json())
+        return json
+
+    def get_teams_json(self):
+        json = {
+            'leagueName': None,
+            'tableName': self.name,
+            'header': BasketballHalfSeasonLeagueTeams.get_header(),
+            'tableData': None
+        }
+        half_seasons = self.half_season.all()
+        for half_season in half_seasons:
+            json['leagueName'] = self.name + '(' + half_season.name + ')'
+            teams = BasketballHalfSeasonLeagueTeams.objects.filter(half_season=half_season, league=self)
+            for team in teams:
+                json['tableData'].append(team.get_json())
+        return json
+    
+    def get_half_seasons_json(self):
         half_season = self.half_season.all()
         for half_season in half_season:
-            season.append(str(self.name) + '(' + str(half_season.name) + ')')
+            half_season.append(str(self.name) + '(' + str(half_season.name) + ')')
         json = {
             'leagueName': self.name,
-            'sessions': season
+            'sessions': half_season
         }
         return json
 
@@ -334,15 +387,15 @@ class TeamHalfSeasonMembers(PolymorphicModel):
 
 
 class FootballTeamHalfSeasonMembers(TeamHalfSeasonMembers):
-    player = models.ManyToManyField(FootballPlayer, on_delete=models.CASCADE)
+    player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
-    half_season = models.ManyToManyField(FootballHalfSeason, on_delete=models.CASCADE)
+    half_season = models.ForeignKey(FootballHalfSeason, on_delete=models.CASCADE)
 
 
 class BasketballTeamHalfSeasonMembers(TeamHalfSeasonMembers):
-    player = models.ManyToManyField(BasketballPlayer, on_delete=models.CASCADE)
+    player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
-    half_season = models.ManyToManyField(BasketballHalfSeason, on_delete=models.CASCADE)
+    half_season = models.ForeignKey(BasketballHalfSeason, on_delete=models.CASCADE)
 
 
 class Substitute(PolymorphicModel):
@@ -351,7 +404,10 @@ class Substitute(PolymorphicModel):
     def match(self):
         pass
 
-    def player(self):
+    def player_in(self):
+        pass
+
+    def player_out(self):
         pass
 
 
@@ -367,7 +423,7 @@ class BasketballSubstitute(Substitute):
     player_out = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
 
 
-class MatchPlayersList(PolymorphicModel):
+class TeamMatchPlayersList(PolymorphicModel):
     main_substitute = models.BooleanField()  # 1 for main 0 for substitute
 
     def team(self):
@@ -380,16 +436,16 @@ class MatchPlayersList(PolymorphicModel):
         pass
 
 
-class FootballMatchPlayersList(MatchPlayersList):
+class FootballMatchPlayersList(TeamMatchPlayersList):
     team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
-    player = models.ManyToManyField(FootballPlayer, on_delete=models.CASCADE)
-    match = models.ManyToManyField(FootballMatch, on_delete=models.CASCADE)
+    player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
+    match = models.ForeignKey(FootballMatch, on_delete=models.CASCADE)
 
 
-class BasketballMatchPlayersList(MatchPlayersList):
+class BasketballMatchPlayersList(TeamMatchPlayersList):
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
-    player = models.ManyToManyField(BasketballPlayer, on_delete=models.CASCADE)
-    match = models.ManyToManyField(BasketballMatch, on_delete=models.CASCADE)
+    player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
+    match = models.ForeignKey(BasketballMatch, on_delete=models.CASCADE)
 
 
 class HalfSeasonLeagueTeams(PolymorphicModel):
@@ -416,46 +472,28 @@ class HalfSeasonLeagueTeams(PolymorphicModel):
 
 class FootballHalfSeasonLeagueTeams(HalfSeasonLeagueTeams):
     drawn = models.PositiveSmallIntegerField()
-    team = models.ManyToManyField(FootballTeam)
-    league = models.ForeignKey(FootballLeague)
-    half_season = models.ForeignKey(FootballHalfSeason)
+    team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
+    league = models.ForeignKey(FootballLeague, on_delete=models.CASCADE)
+    half_season = models.ForeignKey(FootballHalfSeason, on_delete=models.CASCADE)
+
+    @staticmethod
+    def get_header():
+        return ['تیم', 'بازیها', 'برد', 'مساوی', 'باخت', 'گل زده', 'گل خورده', 'تفاضل گل', 'امتیاز']
 
     def get_json(self):
-        json = {
-            'leagueName': self.league.name + '(' + half_season.name + ')',
-            'tableName': league.name,
-            'header': ['تیم', 'بازیها', 'برد', 'مساوی', 'باخت', 'گل زده', 'گل خورده', 'تفاضل گل', 'امتیاز'],
-            'tableData': [],
+        return {
+            'teamInfo': [
+                {'featureName': 'teamName', 'featureValue': self.team.name, 'featureLink': get_url('team', self.team)},
+                {'featureName': 'matches', 'featureValue': self.played, 'featureLink': None},
+                {'featureName': 'win', 'featureValue': self.won, 'featureLink': None},
+                {'featureName': 'draw', 'featureValue': self.drawn, 'featureLink': None},
+                {'featureName': 'loose', 'featureValue': self.lost, 'featureLink': None},
+                {'featureName': 'goalZ', 'featureValue': self.GF, 'featureLink': None},
+                {'featureName': 'goalK', 'featureValue': self.GA, 'featureLink': None},
+                {'featureName': 'goalSub', 'featureValue': self.GD, 'featureLink': None},
+                {'featureName': 'score', 'featureValue': self.points, 'featureLink': None},
+            ]
         }
-
-        for team in self.team.all():
-            matches = FootballMatch.objects.filter(
-                Q(League=self.league, HalfSeason=self.half_season) & Q(Q(team1=team) | Q(team2=team)))
-            matches_count = matches.count()
-            win = matches.filter(result=1).count()
-            draw = matches.filter(result=0).count()
-            loose = matches.filter(result=-1).count()
-            goalZ = 0
-            goalK = 0
-            for match in matches:
-                goalZ += match.team1_goals if match.team1 == team else match.team2_goals
-                goalK += match.team2_goals if match.team1 == team else match.team1_goals
-            json['tableData'].append(
-                {
-                    'teamInfo': [
-                        {'featureName': 'teamName', 'featureValue': team.name,
-                         'featureLink': get_url('team', team)},
-                        {'featureName': 'matches', 'featureValue': matches_count(), 'featureLink': None},
-                        {'featureName': 'win', 'featureValue': win, 'featureLink': None},
-                        {'featureName': 'draw', 'featureValue': draw, 'featureLink': None},
-                        {'featureName': 'loose', 'featureValue': loose, 'featureLink': None},
-                        {'featureName': 'goalZ', 'featureValue': goalZ, 'featureLink': None},
-                        {'featureName': 'goalK', 'featureValue': goalK, 'featureLink': None},
-                        {'featureName': 'goalSub', 'featureValue': goalZ - goalK, 'featureLink': None},
-                        {'featureName': 'score', 'featureValue': (win * 3) + draw, 'featureLink': None},
-                    ]
-                }
-            )
 
 
 class BasketballHalfSeasonLeagueTeams(HalfSeasonLeagueTeams):
@@ -463,42 +501,23 @@ class BasketballHalfSeasonLeagueTeams(HalfSeasonLeagueTeams):
     league = models.ForeignKey(BasketballLeague, on_delete=models.CASCADE)
     half_season = models.ForeignKey(BasketballHalfSeason, on_delete=models.CASCADE)
 
-    def get_json(self, league, half_season):
-        json = {
-            'tableData': [],
-            'leagueName': self.league.name + self.half_season.name,
-            'tableName': self.league.name,
-            'header': ['تیم', 'بازیها', 'برد', 'مساوی', 'باخت', 'گل زده', 'گل خورده', 'تفاضل گل', 'امتیاز'],
-        }
+    @staticmethod
+    def get_header():
+        return ['تیم', 'بازیها', 'برد', 'باخت', 'گل زده', 'گل خورده', 'تفاضل گل', 'امتیاز']
 
-        for team in self.team.all():
-            matches = BasketballMatch.objects.filter(
-                Q(League=self.league, HalfSeason=self.half_season) & Q(Q(team1=team) | Q(team2=team)))
-            matches_count = matches.count()
-            win = matches.filter(result=1).count()
-            draw = matches.filter(result=0).count()
-            loose = matches.filter(result=-1).count()
-            goalZ = 0
-            goalK = 0
-            for match in matches:
-                goalZ += match.team1_goals if match.team1 == team else match.team2_goals
-                goalK += match.team2_goals if match.team1 == team else match.team1_goals
-            json['tableData'].append(
-                {
-                    'teamInfo': [
-                        {'featureName': 'teamName', 'featureValue': team.name,
-                         'featureLink': get_url('team', team)},
-                        {'featureName': 'matches', 'featureValue': matches_count(), 'featureLink': None},
-                        {'featureName': 'win', 'featureValue': win, 'featureLink': None},
-                        {'featureName': 'draw', 'featureValue': draw, 'featureLink': None},
-                        {'featureName': 'loose', 'featureValue': loose, 'featureLink': None},
-                        {'featureName': 'goalZ', 'featureValue': goalZ, 'featureLink': None},
-                        {'featureName': 'goalK', 'featureValue': goalK, 'featureLink': None},
-                        {'featureName': 'goalSub', 'featureValue': goalZ - goalK, 'featureLink': None},
-                        {'featureName': 'score', 'featureValue': (win * 3) + draw, 'featureLink': None},
-                    ]
-                }
-            )
+    def get_json(self):
+        return {
+            'teamInfo': [
+                {'featureName': 'teamName', 'featureValue': self.team.name, 'featureLink': get_url('team', self.team)},
+                {'featureName': 'matches', 'featureValue': self.played, 'featureLink': None},
+                {'featureName': 'win', 'featureValue': self.won, 'featureLink': None},
+                {'featureName': 'loose', 'featureValue': self.lost, 'featureLink': None},
+                {'featureName': 'goalZ', 'featureValue': self.GF, 'featureLink': None},
+                {'featureName': 'goalK', 'featureValue': self.GA, 'featureLink': None},
+                {'featureName': 'goalSub', 'featureValue': self.GD, 'featureLink': None},
+                {'featureName': 'score', 'featureValue': self.points, 'featureLink': None},
+            ]
+        }
 
 
 class FootballGoal(models.Model):
