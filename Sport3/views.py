@@ -32,10 +32,12 @@ def home(request):
                 'favorite': [], }
         }
     }
+    json['football']['matchesTable']['tableBody'].append({'league_season': None, 'matches': []})
+    json['basketball']['matchesTable']['tableBody'].append({'league_season': None, 'matches': []})
     for f in football_matches:
-        json['football']['matchesTable']['tableBody'].append(f.get_summary_json())
+        json['football']['matchesTable']['tableBody'][0]['matches'].append(f.get_summary_json())
     for f in basketball_matches:
-        json['basketball']['matchesTable']['tableBody'].append(f.get_summary_json())
+        json['basketball']['matchesTable']['tableBody'][0]['matches'].append(f.get_summary_json())
     for f in last_football_news:
         json['football']['newsTable']['last'].append(f.get_summary_json())
     for f in last_basketball_news:
@@ -44,22 +46,18 @@ def home(request):
 
 
 @api_view(['GET', 'POST'])
-def news(request, news_id):
-    # News.objects[:15]
-    print('eqerqwerqwerqwerqewr')
-    last_football_news = FootballNews.objects.order_by('-date_time')[:10]
-    last_basketball_news = BasketballNews.objects.order_by('-date_time')[:10]
-    football_matches = FootballMatch.objects.order_by('-date_time')[:50]
-    basketball_matches = BasketballMatch.objects.order_by('-date_time')[:50]
-    json = {'tableHeader': ['نام تیم', 'نتیجه', 'نام تیم', 'تاریخ'],
-            'tableBody': []}
-    for f in football_matches:
-        json['tableBody'].append(f.create_match_summary_json())
+def news(request, news_title, news_id):
+    json = {
+        'newDetail': None,
+        'newsData': []
+    }
+    news = News.objects.get(title=news_title, uid=news_id)
+    summery_news = News.objects.order_by('-date_time')[:10]
+    json['newDetail'] = news.get_json()
+    for summery_news in summery_news:
+        json['newsData'].append(summery_news.get_summary_json())
+
     return JsonResponse(json)
-    # if request.method == 'GET':
-    #     return JsonResponse({'ok': 'get'})
-    # else:
-    #     return JsonResponse({'ok': 'post'})
 
 
 def player():
@@ -75,9 +73,18 @@ def league():
 
 
 @api_view(['GET'])
-def team(request, news_id):
-    res = get_object_or_404(Team, uuid=news_id)
-    res.get_json()
+def team(request, team_name, team_id):
+    json = {
+        'membersData': None,
+        'matchData': None,
+        'newsData': []
+    }
+    team = Team.objects.get(name=team_name, uid=team_id)
+    json['membersData'] = team.get_members_json()
+    json['matchData'] = team.get_matches_json()
+    summery_news = News.objects.order_by('-date_time')[:10]
+    for summery_news in summery_news:
+        json['newsData'].append(summery_news.get_summary_json())
     return JsonResponse(json)
 
 

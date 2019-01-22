@@ -2,11 +2,14 @@ import datetime
 import uuid
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models import Q
 from polymorphic.models import PolymorphicModel
 
 
 def get_url(action, model):
-    return 'http://127.0.0.1:3000/sport3/{0}/{1}'.format(action, model.get_url_id())
+    aux = model.get_url_id()
+    print('http://127.0.0.1:3000/sport3/{0}/{1}/{2}'.format(action, aux[0], aux[1]))
+    return 'http://127.0.0.1:3000/sport3/{0}/{1}/{2}'.format(action, aux[0], aux[1])
 
 
 # Create your models here.
@@ -17,7 +20,7 @@ class HalfSeason(PolymorphicModel):
         return self.name
 
     def get_url_id(self):
-        return self.name + str(self.uid)
+        return self.name, self.uid
 
     uid = models.UUIDField(default=uuid.uuid4(), editable=False)
     half = models.BooleanField()
@@ -40,7 +43,7 @@ class League(PolymorphicModel):
         return self.name
 
     def get_url_id(self):
-        return self.name + str(self.uid)
+        return self.name, self.uid
 
     def half_season(self):
         pass
@@ -69,9 +72,13 @@ class FootballLeague(League):
             'tableHeader': ['نام تیم', 'نتیجه', 'نام تیم', 'تاریخ'],
             'tableBody': []
         }
-        matches = FootballMatch.objects.filter(league=self)
-        for match in matches:
-            json['tableBody'].append(match.get_summary_json())
+        half_seasons = self.half_season.all()
+        for half_season in half_seasons:
+            aux = {'half_season': self.name + '(' + str(half_season.name) + ')', 'matches': []}
+            matches = FootballMatch.objects.filter(league=self, half_season=half_season)
+            for match in matches:
+                aux['matches'].append(match.get_summary_json())
+            json['tableBody'].append(aux)
         return json
 
     def get_teams_json(self):
@@ -87,7 +94,7 @@ class FootballLeague(League):
             teams = FootballHalfSeasonLeagueTeams.objects.filter(half_season=half_season, league=self)
             for team in teams:
                 json['tableData'].append(team.get_json())
-        return json        
+        return json
 
     def get_half_seasons_json(self):
         half_season = self.half_season.all()
@@ -108,7 +115,7 @@ class BasketballLeague(League):
             'tableHeader': ['نام تیم', 'نتیجه', 'نام تیم', 'تاریخ'],
             'tableBody': []
         }
-        matches = FootballMatch.objects.filter(league=self)
+        matches = BasketballMatch.objects.filter(league=self)
         for match in matches:
             json['tableBody'].append(match.get_summary_json())
         return json
@@ -127,7 +134,7 @@ class BasketballLeague(League):
             for team in teams:
                 json['tableData'].append(team.get_json())
         return json
-    
+
     def get_half_seasons_json(self):
         half_season = self.half_season.all()
         for half_season in half_season:
@@ -144,7 +151,16 @@ class Team(PolymorphicModel):
         return self.name
 
     def get_url_id(self):
-        return self.name + str(self.uid)
+        return self.name, self.uid
+
+    def get_members_json(self):
+        pass
+
+    def get_matches_json(self):
+        pass
+
+    def get_news_json(self):
+        pass
 
     uid = models.UUIDField(default=uuid.uuid4(), editable=False)
     name = models.CharField(max_length=40)
@@ -154,11 +170,56 @@ class Team(PolymorphicModel):
 
 
 class FootballTeam(Team):
-    pass
+    def get_members_json(self):
+        team_members = FootballTeamHalfSeasonMembers.objects.filter(team=self)
+        print(team_members.count())
+        json = {
+            'tableHeader': FootballPlayer.get_header(),
+            'tableBody': [],
+        }
+        for team_member in team_members:
+            json['tableBody'].append(team_member.player.get_json())
+        return json
+
+    def get_matches_json(self):
+        matches = FootballMatch.objects.filter(Q(team1=self) | Q(team2=self))[:20]
+        json = []
+        for match in matches:
+            json.append(match.get_json())
+        return json
+
+    def get_news_json(self):  # ####################################################################################
+        news = FootballNews.objects.filter()[:20]
+        json = []
+        for news in news:
+            json.append(news.get_summary_json())
+        return json
 
 
 class BasketballTeam(Team):
-    pass
+    def get_members_json(self):
+        team_members = BasketballTeamHalfSeasonMembers.objects.filter(team=self)
+        json = {
+            'tableHeader': BasketballPlayer.get_header(),
+            'tableBody': [],
+        }
+        for team_member in team_members:
+            json['tableBody'].append(team_member.player.get_json())
+        return json
+
+    def get_matches_json(self):
+        matches = BasketballMatch.objects.filter(Q(team1=self) | Q(team2=self))[:20]
+        json = []
+        for match in matches:
+            json.append(match.get_json())
+        return json
+
+    def get_news_json(self):  # ####################################################################################
+        news = BasketballNews.objects.filter()[:20]
+        json = []
+        for news in news:
+            json.append(news.get_summary_json())
+        return json
 
 
 class Player(PolymorphicModel):
@@ -166,9 +227,13 @@ class Player(PolymorphicModel):
         return self.name
 
     def get_url_id(self):
-        return self.name + str(self.uid)
+        return self.name, self.uid
 
     def get_json(self):
+        pass
+
+    @staticmethod
+    def get_header():
         pass
 
     uid = models.UUIDField(default=uuid.uuid4(), editable=False)
@@ -180,6 +245,10 @@ class Player(PolymorphicModel):
 class FootballPlayer(Player):
     position = models.CharField(max_length=20)
 
+    @staticmethod
+    def get_header():
+        return ['نام', 'سن', 'پست', 'عکس']
+
     def get_json(self):
         return (
             {
@@ -189,7 +258,7 @@ class FootballPlayer(Player):
                      'featureLink': None},
                     {'featureName': 'position', 'featureValue': self.position, 'featureLink': None},
                     {'featureName': 'photo',
-                     'featureValue': self.photo,
+                     'featureValue': self.photo.url,
                      'featureLink': None},
                 ]
             }
@@ -198,6 +267,10 @@ class FootballPlayer(Player):
 
 class BasketballPlayer(Player):
     position = models.CharField(max_length=20)
+
+    @staticmethod
+    def get_header():
+        return ['نام', 'سن', 'پست', 'عکس']
 
     def get_json(self):
         return (
@@ -227,7 +300,7 @@ class Match(PolymorphicModel):
         pass
 
     def get_url_id(self):
-        return self.team1.name + '-' + self.team2.name + str(self.uid)
+        return (self.team1.name + '-' + self.team2.name), self.uid
 
     def team1(self):
         pass
@@ -382,23 +455,26 @@ class TeamHalfSeasonMembers(PolymorphicModel):
     def team(self):
         pass
 
-    def half_season(self):
-        pass
+    # def half_season(self):
+    #     pass
 
 
 class FootballTeamHalfSeasonMembers(TeamHalfSeasonMembers):
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
-    half_season = models.ForeignKey(FootballHalfSeason, on_delete=models.CASCADE)
+    # half_season = models.ForeignKey(FootballHalfSeason, on_delete=models.CASCADE)
 
 
 class BasketballTeamHalfSeasonMembers(TeamHalfSeasonMembers):
     player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
-    half_season = models.ForeignKey(BasketballHalfSeason, on_delete=models.CASCADE)
+    # half_season = models.ForeignKey(BasketballHalfSeason, on_delete=models.CASCADE)
 
 
 class Substitute(PolymorphicModel):
+    def __str__(self):
+        return self.player_in.name + '-' + self.player_out.name
+
     time = models.PositiveSmallIntegerField()
 
     def match(self):
@@ -413,14 +489,14 @@ class Substitute(PolymorphicModel):
 
 class FootballSubstitute(Substitute):
     match = models.ForeignKey(FootballMatch, on_delete=models.CASCADE)
-    player_in = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
-    player_out = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
+    player_in = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE, related_name='go_in')
+    player_out = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE, related_name='come_out')
 
 
 class BasketballSubstitute(Substitute):
     match = models.ForeignKey(BasketballMatch, on_delete=models.CASCADE)
-    player_in = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
-    player_out = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
+    player_in = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE, related_name='go_in')
+    player_out = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE, related_name='come_out')
 
 
 class TeamMatchPlayersList(PolymorphicModel):
@@ -521,6 +597,9 @@ class BasketballHalfSeasonLeagueTeams(HalfSeasonLeagueTeams):
 
 
 class FootballGoal(models.Model):
+    def __str__(self):
+        return self.player.name + '(' + self.team.name + ')'
+
     match = models.ForeignKey(FootballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
@@ -528,6 +607,9 @@ class FootballGoal(models.Model):
 
 
 class FootballAssist(models.Model):
+    def __str__(self):
+        return self.player.name + '(' + self.team.name + ')'
+
     match = models.ForeignKey(FootballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
@@ -535,6 +617,9 @@ class FootballAssist(models.Model):
 
 
 class FootballCard(models.Model):
+    def __str__(self):
+        return self.player.name + '(' + self.team.name + ')'
+
     match = models.ForeignKey(FootballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
@@ -542,6 +627,9 @@ class FootballCard(models.Model):
 
 
 class FootballPenalty(models.Model):
+    def __str__(self):
+        return self.player.name + '(' + self.team.name + ')'
+
     match = models.ForeignKey(FootballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
@@ -549,6 +637,9 @@ class FootballPenalty(models.Model):
 
 
 class BasketballThreePoint(models.Model):
+    def __str__(self):
+        return self.player.name + '(' + self.team.name + ')'
+
     match = models.ForeignKey(BasketballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
@@ -556,6 +647,9 @@ class BasketballThreePoint(models.Model):
 
 
 class BasketballTwoPoint(models.Model):
+    def __str__(self):
+        return self.player.name + '(' + self.team.name + ')'
+
     match = models.ForeignKey(BasketballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
@@ -563,6 +657,9 @@ class BasketballTwoPoint(models.Model):
 
 
 class BasketballPenaltyFault(models.Model):
+    def __str__(self):
+        return self.player.name + '(' + self.team.name + ')'
+
     match = models.ForeignKey(BasketballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
@@ -570,6 +667,9 @@ class BasketballPenaltyFault(models.Model):
 
 
 class BasketballPenaltyFailed(models.Model):
+    def __str__(self):
+        return self.player.name + '(' + self.team.name + ')'
+
     match = models.ForeignKey(BasketballMatch, on_delete=models.CASCADE)
     player = models.ForeignKey(BasketballPlayer, on_delete=models.CASCADE)
     team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE)
@@ -577,16 +677,32 @@ class BasketballPenaltyFailed(models.Model):
 
 
 class Photos(models.Model):
+    def __str__(self):
+        return self.photo.name
+
     photo = models.ImageField()
 
 
 class NewsTags(models.Model):
+    def __str__(self):
+        return self.name
+
     name = models.CharField(max_length=50)
+    url = models.URLField()
+
+    def get_json(self):
+        return {'name': self.name, 'link': self.url}
 
 
 class NewsSources(models.Model):
+    def __str__(self):
+        return self.name
+
     name = models.CharField(max_length=50)
     url = models.URLField()
+
+    def get_json(self):
+        return {'name': self.name, 'link': self.url}
 
 
 class SiteUser(User):
@@ -595,15 +711,18 @@ class SiteUser(User):
     favorite_players = models.ManyToManyField(Player)
 
 
-class Comments(models.Model):
-    text = models.CharField(max_length=400)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    time = models.PositiveSmallIntegerField()
-
-
 class News(PolymorphicModel):
+    def __str__(self):
+        return self.title
+
     def get_url_id(self):
-        return self.title + str(self.uid)
+        return self.title, self.uid
+
+    def get_summary_json(self):
+        pass
+
+    def get_json(self):
+        pass
 
     uid = models.UUIDField(default=uuid.uuid4(), editable=False)
     title = models.CharField(max_length=100)
@@ -613,13 +732,10 @@ class News(PolymorphicModel):
     sources = models.ManyToManyField(NewsSources)
     main_images = models.ForeignKey(Photos, on_delete=models.CASCADE)
     more_images = models.ManyToManyField(Photos, related_name='news1')
-    league = models.ManyToManyField(League)
-    match = models.ManyToManyField(Match)
-    player = models.ManyToManyField(Player)
-    team = models.ManyToManyField(Team)
-
-    def get_summary_json(self):
-        pass
+    # league = models.ManyToManyField(League)
+    # match = models.ManyToManyField(Match)
+    # player = models.ManyToManyField(Player)
+    # team = models.ManyToManyField(Team)
 
 
 class FootballNews(News):
@@ -631,6 +747,28 @@ class FootballNews(News):
             }
         )
 
+    def get_json(self):
+        json = {
+            'moreImagesUrl': [],
+            'image_url': self.main_images.photo.url,
+            'title': self.title,
+            'dateTime': self.date_time,
+            'sources': [],
+            'tages': [],
+            'body': self.body_text,
+            'comments': None
+        }
+        more_images = self.more_images.all()
+        sources = self.sources.all()
+        tags = self.tags.all()
+        for image in more_images:
+            json['moreImagesUrl'].append(image.photo.url)
+        for source in sources:
+            json['sources'].append(source.get_json())
+        for tag in tags:
+            json['tages'].append(tag.get_json())
+        return json
+
 
 class BasketballNews(News):
     def get_summary_json(self):
@@ -640,3 +778,13 @@ class BasketballNews(News):
                 'link': get_url('news', self),
             }
         )
+
+
+class Comments(models.Model):
+    def __str__(self):
+        return self.text
+
+    text = models.CharField(max_length=400)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    time = models.PositiveSmallIntegerField()
+    news = models.ForeignKey(News, on_delete=models.CASCADE)
