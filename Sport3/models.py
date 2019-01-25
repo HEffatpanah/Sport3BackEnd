@@ -512,8 +512,8 @@ class FootballMatch(Match):
         return 0 if team1_goals == team2_goals else -1 if team1_goals < team2_goals else 1
 
     def get_json(self, team):
-        team1_goals = self.team1_goals
-        team2_goals = self.team2_goals
+        team1_goals = self.team1_goals.count()
+        team2_goals = self.team2_goals.count()
         if team == self.team1:
             score, status = (3, 'برد') if team1_goals > team2_goals else (
                 1, 'مساوی') if team1_goals == team2_goals else (
@@ -552,8 +552,8 @@ class FootballMatch(Match):
                 'team1Link': get_url('team', self.team1),
                 'team2Name': self.team2.name,
                 'team2Link': get_url('team', self.team2),
-                'team1Goal': self.team1_goals,
-                'team2Goal': self.team2_goals,
+                'team1Goal': self.team1_goals.count(),
+                'team2Goal': self.team2_goals.count(),
                 'date': 'امروز' if self.date_time.date() == datetime.datetime.now().date()
                 else 'دیروز' if self.date_time.date() == datetime.datetime.now().date() - datetime.timedelta(days=1)
                 else 'فردا' if self.date_time.date() == datetime.datetime.now().date() - datetime.timedelta(days=1)

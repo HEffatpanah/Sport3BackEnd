@@ -76,7 +76,7 @@ def league():
 def team(request, team_name, team_id):
     json = {
         'membersData': None,
-        'matchData': None,
+        'matchesData': None,
         'newsData': [],
         'teamName': team_name,
         'logo': None,
