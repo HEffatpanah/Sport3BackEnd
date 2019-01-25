@@ -77,12 +77,15 @@ def team(request, team_name, team_id):
     json = {
         'membersData': None,
         'matchData': None,
-        'newsData': []
+        'newsData': [],
+        'teamName': team_name,
+        'logo': None,
     }
     team = Team.objects.get(name=team_name, uid=team_id)
+    json['logo'] = team.logo.url
     json['membersData'] = team.get_members_json()
     json['matchData'] = team.get_matches_json()
-    summery_news = News.objects.order_by('-date_time')[:10]
+    summery_news = News.objects.filter(tags__name__contains='بازی')
     for summery_news in summery_news:
         json['newsData'].append(summery_news.get_summary_json())
     return JsonResponse(json)
