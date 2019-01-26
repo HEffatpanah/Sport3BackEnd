@@ -218,7 +218,7 @@ class FootballTeam(Team):
 
     def get_members_json(self):
         # print(get_last_half_season(HalfSeason))
-        team_members = self.members.all()
+        team_members = self.footballplayer_set.all()
 
         json = {
             'tableHeader': FootballPlayer.get_header(),
@@ -810,18 +810,18 @@ class FootballHalfSeasonLeagueTeams(HalfSeasonLeagueTeams):
         for match in matches1:
             GF += match.team1_goals.count()
             GA += match.team2_goals.count()
-            if match.result() == 1:
+            if match.result == 1:
                 won += 1
-            elif match.result() == 0:
+            elif match.result == 0:
                 drawn += 1
             else:
                 lost += 1
         for match in matches2:
             GF += match.team2_goals.count()
             GA += match.team1_goals.count()
-            if match.result() == 1:
+            if match.result == 1:
                 won += 1
-            elif match.result() == 0:
+            elif match.result == 0:
                 drawn += 1
             else:
                 lost += 1
