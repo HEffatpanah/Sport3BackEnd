@@ -68,8 +68,31 @@ def match():
     pass
 
 
-def league():
-    pass
+@api_view(['GET'])
+def league(request, season_name, id):
+    json = {
+        'teams': None,
+        'current_leagues': None,
+        'old_leagues': None,
+        'matches': None,
+    }
+    if season_name == 'default' and id == 0:
+
+        league = DefaultLeague.objects.last().default_league
+        half_season = CurrentHalfSeason.objects.last().current_half_season
+    else:
+        league = get_object_or_404(League, uid=id)
+        half_season = get_object_or_404(HalfSeason, name=season_name)
+    print('dddddddd\n\n')
+    json['matches'] = league.get_matches_json(half_season)
+    print('hhhhhhhh\n\n')
+    json['teams'] = league.get_teams_json(half_season)
+    print('aaaaaaaa\n\n')
+    json['current_leagues'] = league.get_current_half_seasons_json()
+    print('bbbbbbbb\n\n')
+    json['matches'] = league.get_old_half_seasons_json()
+    return JsonResponse(json)
+
 
 
 @api_view(['GET'])

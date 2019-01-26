@@ -37,10 +37,6 @@ class HalfSeason(models.Model):
         unique_together = (("name",),)
 
 
-class CurrentHalfSeason(models.Model):
-    current_half_season = models.ForeignKey(HalfSeason, on_delete=models.CASCADE)
-
-
 # class FootballHalfSeason(HalfSeason):
 #     pass
 #
@@ -56,16 +52,19 @@ class League(PolymorphicModel):
     def get_url_id(self):
         return self.name, self.uid
 
-    def get_half_seasons_json(self):
+    def get_current_half_seasons_json(self):
         pass
 
-    def get_teams_json(self):
+    def get_old_half_seasons_json(self):
         pass
 
-    def get_matches_json(self):
+    def get_teams_json(self, half_season):
         pass
 
-    half_season = models.ForeignKey(HalfSeason, on_delete=models.CASCADE)
+    def get_matches_json(self, half_season):
+        pass
+
+    half_season = models.ManyToManyField(HalfSeason)
     uid = models.UUIDField(default=uuid.uuid4(), editable=False)
     name = models.CharField(max_length=20)
 
@@ -76,83 +75,118 @@ class League(PolymorphicModel):
 class FootballLeague(League):
     teams = models.ManyToManyField('FootballTeam')
 
-    def get_matches_json(self):
+    def get_matches_json(self, half_season):
         json = {
             'tableHeader': ['نام تیم', 'نتیجه', 'نام تیم', 'تاریخ'],
             'tableBody': []
         }
-        half_seasons = self.half_season.all()
-        for half_season in half_seasons:
-            aux = {'half_season': self.name + '(' + str(half_season.name) + ')', 'matches': []}
-            matches = FootballMatch.objects.filter(league=self, half_season=half_season)
-            for match in matches:
-                aux['matches'].append(match.get_summary_json())
-            json['tableBody'].append(aux)
+        aux_json = {'league_season': self.name + '(' + str(half_season.name) + ')', 'matches': []}
+        matches = FootballMatch.objects.filter(league=self, half_season=half_season)
+        for match in matches:
+            aux_json['matches'].append(match.get_summary_json())
+        json['tableBody'].append(aux_json)
         return json
 
-    def get_teams_json(self):
-        json = {
-            'leagueName': None,
-            'tableName': self.name,
-            'header': FootballHalfSeasonLeagueTeams.get_header(),
-            'tableData': None
+    def get_teams_json(self, half_season):
+        json = {'leagueName': self.name + '(' + half_season.name + ')', 'tableName': self.name,
+                'header': FootballHalfSeasonLeagueTeams.get_header(), 'tableData': []}
+        teams = FootballHalfSeasonLeagueTeams.objects.filter(half_season=half_season, league=self)
+        for team in teams:
+            json['tableData'].append(team.get_json())
+        return json
+
+    def get_current_half_seasons_json(self):
+        aux_json = {
+            'name': None,
+            'link': None,
         }
-        half_seasons = self.half_season.all()
-        for half_season in half_seasons:
-            json['leagueName'] = self.name + '(' + half_season.name + ')'
-            teams = FootballHalfSeasonLeagueTeams.objects.filter(half_season=half_season, league=self)
-            for team in teams:
-                json['tableData'].append(team.get_json())
-        return json
-
-    def get_half_seasons_json(self):
-        half_season = self.half_season.all()
-        for half_season in half_season:
-            half_season.append(str(self.name) + '(' + str(half_season.name) + ')')
+        half_season = CurrentHalfSeason.objects.last().current_half_season
+        aux_json['name'] = self.name + '(' + half_season.name + ')'
+        aux_json['link'] = get_url('league', half_season)
         json = {
             'leagueName': self.name,
-            'sessions': half_season
+            'sessions': [aux_json]
         }
+        return json
+
+    def get_old_half_seasons_json(self):
+        half_seasons = self.half_season.filter(~Q(name=CurrentHalfSeason.objects.last().current_half_season.name))
+        aux_json = {
+            'name': None,
+            'link': None,
+        }
+        json = {
+            'leagueName': self.name,
+            'sessions': []
+        }
+        for half_season in half_seasons:
+            aux_json['name'] = str(self.name) + '(' + str(half_season.name) + ')'
+            aux_json['link'] = get_url('leagues', half_season)
+            json['sessions'].append(aux_json)
+
         return json
 
 
 class BasketballLeague(League):
     teams = models.ManyToManyField('BasketballTeam')
 
-    def get_matches_json(self):
+    def get_matches_json(self, half_season):
         json = {
             'tableHeader': ['نام تیم', 'نتیجه', 'نام تیم', 'تاریخ'],
             'tableBody': []
         }
-        matches = BasketballMatch.objects.filter(league=self)
+        aux = {'league_season': self.name + '(' + str(half_season.name) + ')', 'matches': []}
+        matches = BasketballMatch.objects.filter(league=self, half_season=half_season)
         for match in matches:
-            json['tableBody'].append(match.get_summary_json())
+            aux['matches'].append(match.get_summary_json())
+        json['tableBody'].append(aux)
         return json
 
-    def get_teams_json(self):
-        json = {
-            'leagueName': None,
-            'tableName': self.name,
-            'header': BasketballHalfSeasonLeagueTeams.get_header(),
-            'tableData': None
+    def get_teams_json(self, half_season):
+        json = {'leagueName': self.name + '(' + half_season.name + ')', 'tableName': self.name,
+                'header': BasketballHalfSeasonLeagueTeams.get_header(), 'tableData': None}
+        teams = BasketballHalfSeasonLeagueTeams.objects.filter(half_season=half_season, league=self)
+        for team in teams:
+            json['tableData'].append(team.get_json())
+        return json
+
+    def get_current_half_seasons_json(self):
+        aux_json = {
+            'name': None,
+            'link': None,
         }
-        half_seasons = self.half_season.all()
-        for half_season in half_seasons:
-            json['leagueName'] = self.name + '(' + half_season.name + ')'
-            teams = BasketballHalfSeasonLeagueTeams.objects.filter(half_season=half_season, league=self)
-            for team in teams:
-                json['tableData'].append(team.get_json())
+        half_season = CurrentHalfSeason.objects.last().current_half_season
+        aux_json['name'] = self.name + '(' + half_season.name + ')'
+        aux_json['link'] = get_url('league', half_season)
+        json = {
+            'leagueName': self.name,
+            'sessions': [aux_json]
+        }
         return json
 
-    def get_half_seasons_json(self):
-        half_season = self.half_season.all()
+    def get_old_half_seasons_json(self):
+        half_season = self.half_season.filter(~Q(name=CurrentHalfSeason.objects.last().current_half_season.name))
+        aux_json = {
+            'name': None,
+            'link': None,
+        }
         for half_season in half_season:
-            half_season.append(str(self.name) + '(' + str(half_season.name) + ')')
+            aux_json['name'] = str(self.name) + '(' + str(half_season.name) + ')'
+            aux_json['link'] = get_url('leagues', half_season)
+            half_season.append(aux_json)
         json = {
             'leagueName': self.name,
             'sessions': half_season
         }
         return json
+
+
+class CurrentHalfSeason(models.Model):
+    current_half_season = models.ForeignKey(HalfSeason, on_delete=models.CASCADE)
+
+
+class DefaultLeague(models.Model):
+    default_league = models.ForeignKey(League, on_delete=models.CASCADE)
 
 
 class Team(PolymorphicModel):
@@ -237,22 +271,6 @@ class BasketballTeam(Team):
         return json
 
 
-# @receiver(m2m_changed, sender=FootballTeam.members.through)
-# def save_team_half_season_members(sender, **kwargs):
-#     if kwargs['action'] == 'post_remove':
-#         pks = kwargs['pk_set']
-#         for pk in pks:
-#             player = FootballPlayer.objects.get(pk=pk)
-#             FootballTeamHalfSeasonMembers.objects.get(player=player, team=kwargs['instance'],
-#                                                       half_season=CurrentHalfSeason.objects.last().current_half_season).delete()
-#     if kwargs['action'] == 'post_add':
-#         pks = kwargs['pk_set']
-#         for pk in pks:
-#             player = FootballPlayer.objects.get(pk=pk)
-#             FootballTeamHalfSeasonMembers.objects.create(player=player, team=kwargs['instance'],
-#                                                          half_season=CurrentHalfSeason.objects.last().current_half_season)
-#
-
 class Player(PolymorphicModel):
     def team(self):
         pass
@@ -322,6 +340,27 @@ class BasketballPlayer(Player):
                 ]
             }
         )
+
+
+@receiver(post_save, sender=FootballPlayer)
+def save_team_half_season_members(sender, **kwargs):
+    print('\n\n\n\n', kwargs['instance'].team.name, '\n\n\n')
+    try:
+        FootballTeamHalfSeasonMembers.objects.get(player=kwargs['instance'],
+                                                  half_season=CurrentHalfSeason.objects.last().current_half_season).delete()
+    except:
+        pass
+    FootballTeamHalfSeasonMembers.objects.create(player=kwargs['instance'], team=kwargs['instance'].team,
+                                                 half_season=CurrentHalfSeason.objects.last().current_half_season)
+
+
+@receiver(pre_delete, sender=FootballPlayer)
+def delete_team_half_season_members(sender, **kwargs):
+    print('\n\n\n\n', kwargs['instance'].team.name, '\n\n\n')
+
+    aux = FootballTeamHalfSeasonMembers.objects.filter(player=kwargs['instance'])
+    for i in aux:
+        i.delete()
 
 
 class TeamHalfSeasonMembers(PolymorphicModel):
@@ -396,10 +435,12 @@ class FootballAssist(models.Model):
 
 class FootballCard(models.Model):
     def __str__(self):
-        return self.player.name + '(' + self.team.name + ')'
+        return self.player.name
 
+    color = models.CharField(max_length=256,
+                             choices=[('first yellow', 'first yellow'), ('second yellow', 'second yellow'),
+                                      ('red', 'red')], default='yellow')
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
-    team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
 
 
@@ -497,21 +538,34 @@ class FootballMatch(Match):
     team2_shoots = models.PositiveSmallIntegerField()
     team1_shoots_on_target = models.PositiveSmallIntegerField()
     team2_shoots_on_target = models.PositiveSmallIntegerField()
-    team1_assists = models.PositiveSmallIntegerField()  #
-    team2_assists = models.PositiveSmallIntegerField()  #
     team1_main_players = ChainedManyToManyField(FootballPlayer,
                                                 horizontal=True,
-                                                verbose_name='footballplayer', chained_field="team1",
+                                                verbose_name='team1_main_players', chained_field="team1",
                                                 chained_model_field="team",
                                                 related_name='home_match_main')
-    # team1_main_players = models.ManyToManyField(FootballPlayer, related_name='home_match_main')
-    team1_substitute_players = models.ManyToManyField(FootballPlayer, related_name='home_match_substitute')
-    team2_main_players = models.ManyToManyField(FootballPlayer, related_name='away_match_main')
-    team2_substitute_players = models.ManyToManyField(FootballPlayer, related_name='away_match_substitute')
-    team1_cards = models.ForeignKey(FootballCard, on_delete=models.CASCADE, related_name='home_match')
-    team2_cards = models.ForeignKey(FootballCard, on_delete=models.CASCADE, related_name='away_match')
-
-    ##
+    team1_substitute_players = ChainedManyToManyField(FootballPlayer,
+                                                      horizontal=True,
+                                                      verbose_name='team1_substitute_players', chained_field="team1",
+                                                      chained_model_field="team",
+                                                      related_name='home_match_substitute')
+    team2_main_players = ChainedManyToManyField(FootballPlayer,
+                                                horizontal=True,
+                                                verbose_name='team2_main_players', chained_field="team2",
+                                                chained_model_field="team",
+                                                related_name='away_match_main')
+    team2_substitute_players = ChainedManyToManyField(FootballPlayer,
+                                                      horizontal=True,
+                                                      verbose_name='team2_substitute_players', chained_field="team2",
+                                                      chained_model_field="team",
+                                                      related_name='away_match_substitute')
+    team1_cards = models.ManyToManyField(FootballCard, related_name='home_match')
+    team2_cards = models.ManyToManyField(FootballCard, related_name='away_match')
+    team1_penalty = models.ManyToManyField(FootballPenalty, related_name='home_match')
+    team2_penalty = models.ManyToManyField(FootballPenalty, related_name='away_match')
+    team1_assists = models.ManyToManyField(FootballAssist, related_name='home_match')
+    team2_assists = models.ManyToManyField(FootballAssist, related_name='away_match')
+    team1_substitutes = models.ManyToManyField(FootballSubstitute, related_name='home_match')
+    team2_substitutes = models.ManyToManyField(FootballSubstitute, related_name='away_match')
 
     @property
     def result(self):
@@ -595,10 +649,26 @@ class BasketballMatch(Match):
     team2_fourth_quarter_score = models.PositiveSmallIntegerField()
     team1_rebounds = models.PositiveSmallIntegerField()
     team2_rebounds = models.PositiveSmallIntegerField()
-    team1_main_players = models.ManyToManyField(BasketballPlayer, related_name='home_match_main')
-    team1_substitute_players = models.ManyToManyField(BasketballPlayer, related_name='home_match_substitute')
-    team2_main_players = models.ManyToManyField(BasketballPlayer, related_name='away_match_main')
-    team2_substitute_players = models.ManyToManyField(BasketballPlayer, related_name='away_match_substitute')
+    team1_main_players = ChainedManyToManyField(BasketballPlayer,
+                                                horizontal=True,
+                                                verbose_name='team1_main_players', chained_field="team1",
+                                                chained_model_field="team",
+                                                related_name='home_match_main')
+    team1_substitute_players = ChainedManyToManyField(BasketballPlayer,
+                                                      horizontal=True,
+                                                      verbose_name='team1_substitute_players', chained_field="team1",
+                                                      chained_model_field="team",
+                                                      related_name='home_match_substitute')
+    team2_main_players = ChainedManyToManyField(BasketballPlayer,
+                                                horizontal=True,
+                                                verbose_name='team2_main_players', chained_field="team2",
+                                                chained_model_field="team",
+                                                related_name='away_match_main')
+    team2_substitute_players = ChainedManyToManyField(BasketballPlayer,
+                                                      horizontal=True,
+                                                      verbose_name='team2_substitute_players', chained_field="team2",
+                                                      chained_model_field="team",
+                                                      related_name='away_match_substitute')
 
     @property
     def result(self):
@@ -721,13 +791,49 @@ class FootballHalfSeasonLeagueTeams(HalfSeasonLeagueTeams):
         return ['تیم', 'بازیها', 'برد', 'مساوی', 'باخت', 'گل زده', 'گل خورده', 'تفاضل گل', 'امتیاز']
 
     def get_json(self):
-        played = FootballLeague.footballmatch_set.filter(Q(team1=self.team) | Q(team2=self.team)).count()
-        won = FootballLeague.footballmatch_set.filter(
-            Q(Q(team1=self.team) & Q(result=1)) | Q(Q(team2=self.team) & Q(result=-1))).count()
-        drawn = FootballLeague.footballmatch_set.filter(
-            Q(Q(team1=self.team) | Q(team2=self.team)) & Q(result=0)).count()
-        lost = FootballLeague.footballmatch_set.filter(
-            Q(Q(team1=self.team) & Q(result=-1)) | Q(Q(team2=self.team) & Q(result=1))).count()
+        # played = FootballLeague.footballmatch_set.filter(Q(team1=self.team) | Q(team2=self.team)).count()
+        # won = FootballLeague.footballmatch_set.filter(
+        #     Q(Q(team1=self.team) & Q(result=1)) | Q(Q(team2=self.team) & Q(result=-1))).count()
+        # drawn = FootballLeague.footballmatch_set.filter(
+        #     Q(Q(team1=self.team) | Q(team2=self.team)) & Q(result=0)).count()
+        # lost = FootballLeague.footballmatch_set.filter(
+        #     Q(Q(team1=self.team) & Q(result=-1)) | Q(Q(team2=self.team) & Q(result=1))).count()
+        matches1 = FootballMatch.objects.filter(half_season=self.half_season, league=self.league, team1=self.team)
+        matches2 = FootballMatch.objects.filter(half_season=self.half_season, league=self.league, team2=self.team)
+        played = matches1.count() + matches2.count()
+        won = 0
+        drawn = 0
+        lost = 0
+        GF = 0
+        GA = 0
+        # won = matches1.filter(result=1).count() + matches2.filter(result=-1).count()
+        for match in matches1:
+            GF += match.team1_goals.count()
+            GA += match.team2_goals.count()
+            if match.result() == 1:
+                won += 1
+            elif match.result() == 0:
+                drawn += 1
+            else:
+                lost += 1
+        for match in matches2:
+            GF += match.team2_goals.count()
+            GA += match.team1_goals.count()
+            if match.result() == 1:
+                won += 1
+            elif match.result() == 0:
+                drawn += 1
+            else:
+                lost += 1
+        # drawn = matches1.filter(result=0).count() + matches2.filter(result=0).count()
+        # lost = played - won - drawn
+
+        # for match in matches1:
+        #     GF += match.team1_goals.count()
+        #     GA += match.team2_goals.count()
+        # for match in matches2:
+        #     GF += match.team2_goals.count()
+        #     GA += match.team1_goals.count()
         return {
             'teamInfo': [
                 {'featureName': 'teamName', 'featureValue': self.team.name, 'featureLink': get_url('team', self.team)},
@@ -735,10 +841,10 @@ class FootballHalfSeasonLeagueTeams(HalfSeasonLeagueTeams):
                 {'featureName': 'win', 'featureValue': won, 'featureLink': None},
                 {'featureName': 'draw', 'featureValue': drawn, 'featureLink': None},
                 {'featureName': 'loose', 'featureValue': lost, 'featureLink': None},
-                {'featureName': 'goalZ', 'featureValue': self.GF, 'featureLink': None},
-                {'featureName': 'goalK', 'featureValue': self.GA, 'featureLink': None},
-                {'featureName': 'goalSub', 'featureValue': self.GD, 'featureLink': None},
-                {'featureName': 'score', 'featureValue': self.points, 'featureLink': None},
+                {'featureName': 'goalZ', 'featureValue': GF, 'featureLink': None},
+                {'featureName': 'goalK', 'featureValue': GA, 'featureLink': None},
+                {'featureName': 'goalSub', 'featureValue': GF - GA, 'featureLink': None},
+                {'featureName': 'score', 'featureValue': (won * 3) + drawn, 'featureLink': None},
             ]
         }
 
