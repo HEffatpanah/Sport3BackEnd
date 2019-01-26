@@ -11,6 +11,22 @@ class MyModelAdmin(admin.ModelAdmin):
         return {}
 
 
+class FootballMatchAdmin(admin.ModelAdmin):
+    team1 = None
+    team2 = None
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        # if db_field.name == "team1_main_players":
+        #     kwargs["queryset"] = self.team1.members.all()
+        return super(FootballMatchAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        print('hooooooooy', request, db_field)
+        # if db_field.name == "team1_main_players":
+        #     kwargs["queryset"] = self.team1.members.all()
+        return super(FootballMatchAdmin, self).formfield_for_manytomany(db_field, request, **kwargs)
+
+
 # Register your models here.
 admin.site.register(FootballLeague)
 admin.site.register(BasketballLeague)
@@ -37,9 +53,9 @@ admin.site.register(FootballHalfSeasonLeagueTeams)
 # admin.site.register(BasketballThreePoint)
 # admin.site.register(BasketballPenaltyFault)
 # admin.site.register(BasketballPenaltyFailed)
-admin.site.register(Photos,MyModelAdmin)
-admin.site.register(NewsTags,MyModelAdmin)
-admin.site.register(NewsSources,MyModelAdmin)
+admin.site.register(Photos, MyModelAdmin)
+admin.site.register(NewsTags, MyModelAdmin)
+admin.site.register(NewsSources, MyModelAdmin)
 admin.site.register(SiteUser)
 admin.site.register(Comments)
 admin.site.register(FootballNews)

@@ -1,4 +1,5 @@
-from django.urls import path,re_path
+from django.conf.urls import url
+from django.urls import path, re_path, include
 
 from Sport3 import views
 
@@ -12,4 +13,5 @@ urlpatterns = [
     path('login', views.login, name='login'),
     path('signup', views.signup, name='signup'),
     path('forgotten', views.forgotten, name='forgotten'),
+    url(r'^chaining/', include('smart_selects.urls')),
 ]

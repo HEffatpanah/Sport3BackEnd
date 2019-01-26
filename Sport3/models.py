@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.db.models.signals import *
 from django.dispatch import receiver
 from polymorphic.models import PolymorphicModel
+from smart_selects.db_fields import ChainedManyToManyField
 
 from Backend import settings
 
@@ -154,72 +155,6 @@ class BasketballLeague(League):
         return json
 
 
-class Player(PolymorphicModel):
-    def __str__(self):
-        return self.name
-
-    def get_url_id(self):
-        return self.name, self.uid
-
-    def get_json(self):
-        pass
-
-    @staticmethod
-    def get_header():
-        pass
-
-    uid = models.UUIDField(default=uuid.uuid4(), editable=False)
-    name = models.CharField(max_length=40)
-    birth_date = models.DateTimeField()
-    photo = models.ImageField(storage=private_storage, null=True, blank=True)
-
-
-class FootballPlayer(Player):
-    position = models.CharField(max_length=20)
-
-    @staticmethod
-    def get_header():
-        return ['نام', 'سن', 'پست', 'عکس']
-
-    def get_json(self):
-        return (
-            {
-                'memberInfo': [
-                    {'featureName': 'playerName', 'featureValue': self.name, 'featureLink': get_url('player', self)},
-                    {'featureName': 'age', 'featureValue': datetime.datetime.now().year - self.birth_date.year,
-                     'featureLink': None},
-                    {'featureName': 'position', 'featureValue': self.position, 'featureLink': None},
-                    {'featureName': 'photo',
-                     'featureValue': self.photo.url,
-                     'featureLink': None},
-                ]
-            }
-        )
-
-
-class BasketballPlayer(Player):
-    position = models.CharField(max_length=20)
-
-    @staticmethod
-    def get_header():
-        return ['نام', 'سن', 'پست', 'عکس']
-
-    def get_json(self):
-        return (
-            {
-                'memberInfo': [
-                    {'featureName': 'playerName', 'featureValue': self.name, 'featureLink': get_url('player', self)},
-                    {'featureName': 'age', 'featureValue': datetime.datetime.now().year - self.birth_date.year,
-                     'featureLink': None},
-                    {'featureName': 'position', 'featureValue': self.position, 'featureLink': None},
-                    {'featureName': 'photo',
-                     'featureValue': self.photo,
-                     'featureLink': None},
-                ]
-            }
-        )
-
-
 class Team(PolymorphicModel):
     def __str__(self):
         return self.name
@@ -236,9 +171,6 @@ class Team(PolymorphicModel):
     def get_news_json(self):
         pass
 
-    def members(self):
-        pass
-
     logo = models.ImageField(storage=private_storage, default='biel-morro-128512-unsplash.jpg')
     uid = models.UUIDField(default=uuid.uuid4(), editable=False)
     name = models.CharField(max_length=40)
@@ -248,7 +180,7 @@ class Team(PolymorphicModel):
 
 
 class FootballTeam(Team):
-    members = models.ManyToManyField(FootballPlayer)
+    # members = models.ManyToManyField(FootballPlayer)
 
     def get_members_json(self):
         # print(get_last_half_season(HalfSeason))
@@ -278,7 +210,7 @@ class FootballTeam(Team):
 
 
 class BasketballTeam(Team):
-    members = models.ManyToManyField(BasketballPlayer)
+    # members = models.ManyToManyField(BasketballPlayer)
 
     def get_members_json(self):
         team_members = BasketballTeamHalfSeasonMembers.objects.filter(team=self)
@@ -305,20 +237,91 @@ class BasketballTeam(Team):
         return json
 
 
-@receiver(m2m_changed, sender=FootballTeam.members.through)
-def save_team_half_season_members(sender, **kwargs):
-    if kwargs['action'] == 'post_remove':
-        pks = kwargs['pk_set']
-        for pk in pks:
-            player = FootballPlayer.objects.get(pk=pk)
-            FootballTeamHalfSeasonMembers.objects.get(player=player, team=kwargs['instance'],
-                                                      half_season=CurrentHalfSeason.objects.last().current_half_season).delete()
-    if kwargs['action'] == 'post_add':
-        pks = kwargs['pk_set']
-        for pk in pks:
-            player = FootballPlayer.objects.get(pk=pk)
-            FootballTeamHalfSeasonMembers.objects.create(player=player, team=kwargs['instance'],
-                                                         half_season=CurrentHalfSeason.objects.last().current_half_season)
+# @receiver(m2m_changed, sender=FootballTeam.members.through)
+# def save_team_half_season_members(sender, **kwargs):
+#     if kwargs['action'] == 'post_remove':
+#         pks = kwargs['pk_set']
+#         for pk in pks:
+#             player = FootballPlayer.objects.get(pk=pk)
+#             FootballTeamHalfSeasonMembers.objects.get(player=player, team=kwargs['instance'],
+#                                                       half_season=CurrentHalfSeason.objects.last().current_half_season).delete()
+#     if kwargs['action'] == 'post_add':
+#         pks = kwargs['pk_set']
+#         for pk in pks:
+#             player = FootballPlayer.objects.get(pk=pk)
+#             FootballTeamHalfSeasonMembers.objects.create(player=player, team=kwargs['instance'],
+#                                                          half_season=CurrentHalfSeason.objects.last().current_half_season)
+#
+
+class Player(PolymorphicModel):
+    def team(self):
+        pass
+
+    def __str__(self):
+        return self.name
+
+    def get_url_id(self):
+        return self.name, self.uid
+
+    def get_json(self):
+        pass
+
+    @staticmethod
+    def get_header():
+        pass
+
+    uid = models.UUIDField(default=uuid.uuid4(), editable=False)
+    name = models.CharField(max_length=40)
+    birth_date = models.DateTimeField()
+    photo = models.ImageField(storage=private_storage, null=True, blank=True)
+
+
+class FootballPlayer(Player):
+    position = models.CharField(max_length=20)
+    team = models.ForeignKey(FootballTeam, on_delete=models.CASCADE, null=True, blank=True)
+
+    @staticmethod
+    def get_header():
+        return ['نام', 'سن', 'پست', 'عکس']
+
+    def get_json(self):
+        return (
+            {
+                'memberInfo': [
+                    {'featureName': 'playerName', 'featureValue': self.name, 'featureLink': get_url('player', self)},
+                    {'featureName': 'age', 'featureValue': datetime.datetime.now().year - self.birth_date.year,
+                     'featureLink': None},
+                    {'featureName': 'position', 'featureValue': self.position, 'featureLink': None},
+                    {'featureName': 'photo',
+                     'featureValue': self.photo.url,
+                     'featureLink': None},
+                ]
+            }
+        )
+
+
+class BasketballPlayer(Player):
+    position = models.CharField(max_length=20)
+    team = models.ForeignKey(BasketballTeam, on_delete=models.CASCADE, null=True, blank=True)
+
+    @staticmethod
+    def get_header():
+        return ['نام', 'سن', 'پست', 'عکس']
+
+    def get_json(self):
+        return (
+            {
+                'memberInfo': [
+                    {'featureName': 'playerName', 'featureValue': self.name, 'featureLink': get_url('player', self)},
+                    {'featureName': 'age', 'featureValue': datetime.datetime.now().year - self.birth_date.year,
+                     'featureLink': None},
+                    {'featureName': 'position', 'featureValue': self.position, 'featureLink': None},
+                    {'featureName': 'photo',
+                     'featureValue': self.photo,
+                     'featureLink': None},
+                ]
+            }
+        )
 
 
 class TeamHalfSeasonMembers(PolymorphicModel):
@@ -496,7 +499,12 @@ class FootballMatch(Match):
     team2_shoots_on_target = models.PositiveSmallIntegerField()
     team1_assists = models.PositiveSmallIntegerField()  #
     team2_assists = models.PositiveSmallIntegerField()  #
-    team1_main_players = models.ManyToManyField(FootballPlayer, related_name='home_match_main')
+    team1_main_players = ChainedManyToManyField(FootballPlayer,
+                                                horizontal=True,
+                                                verbose_name='footballplayer', chained_field="team1",
+                                                chained_model_field="team",
+                                                related_name='home_match_main')
+    # team1_main_players = models.ManyToManyField(FootballPlayer, related_name='home_match_main')
     team1_substitute_players = models.ManyToManyField(FootballPlayer, related_name='home_match_substitute')
     team2_main_players = models.ManyToManyField(FootballPlayer, related_name='away_match_main')
     team2_substitute_players = models.ManyToManyField(FootballPlayer, related_name='away_match_substitute')
@@ -714,8 +722,10 @@ class FootballHalfSeasonLeagueTeams(HalfSeasonLeagueTeams):
 
     def get_json(self):
         played = FootballLeague.footballmatch_set.filter(Q(team1=self.team) | Q(team2=self.team)).count()
-        won = FootballLeague.footballmatch_set.filter(Q(Q(team1=self.team) & Q(result=1)) | Q(Q(team2=self.team) & Q(result=-1))).count()
-        drawn = FootballLeague.footballmatch_set.filter(Q(Q(team1=self.team)|Q(team2=self.team)) & Q(result=0)).count()
+        won = FootballLeague.footballmatch_set.filter(
+            Q(Q(team1=self.team) & Q(result=1)) | Q(Q(team2=self.team) & Q(result=-1))).count()
+        drawn = FootballLeague.footballmatch_set.filter(
+            Q(Q(team1=self.team) | Q(team2=self.team)) & Q(result=0)).count()
         lost = FootballLeague.footballmatch_set.filter(
             Q(Q(team1=self.team) & Q(result=-1)) | Q(Q(team2=self.team) & Q(result=1))).count()
         return {
