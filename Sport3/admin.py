@@ -1,3 +1,5 @@
+import re
+
 from django.contrib import admin
 
 from Sport3.models import *
@@ -10,24 +12,23 @@ class MyModelAdmin(admin.ModelAdmin):
         """
         return {}
 
+    # def formfield_for_manytomany(self, db_field, request, **kwargs):
+    #     print('hooooooooy', db_field.name, request, db_field)
+    #     if db_field.name == "team1_main_players":
+    #         kwargs["queryset"] = self.team1.members.all()
+    #     return super(GoalAdmin, self).formfield_for_manytomany(db_field, request, **kwargs)
 
-class FootballMatchAdmin(admin.ModelAdmin):
-    team1 = None
-    team2 = None
 
+class GoalAdmin(admin.ModelAdmin):
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        # if db_field.name == "team1_main_players":
-        #     kwargs["queryset"] = self.team1.members.all()
-        return super(FootballMatchAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
-
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
-        print('hooooooooy', request, db_field)
-        # if db_field.name == "team1_main_players":
-        #     kwargs["queryset"] = self.team1.members.all()
-        return super(FootballMatchAdmin, self).formfield_for_manytomany(db_field, request, **kwargs)
+        url = request.environ['HTTP_REFERER']
+        regex = re.search(r'([\d]+)/change/$', url)
+        match = FootballMatch.objects.all()[int(regex.group(1)) - 1]
+        if db_field.name == "player":
+            kwargs["queryset"] = FootballPlayer.objects.filter(Q(team=match.team1) | Q(team=match.team2))
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
-# Register your models here.
 admin.site.register(FootballLeague)
 admin.site.register(BasketballLeague)
 admin.site.register(FootballTeam)
@@ -65,4 +66,6 @@ admin.site.register(DefaultLeague)
 admin.site.register(Goal, MyModelAdmin)
 admin.site.register(FootballCard, MyModelAdmin)
 admin.site.register(FootballAssist, MyModelAdmin)
-# admin.site.register(, MyModelAdmin)
+admin.site.register(FootballPenalty, MyModelAdmin)
+admin.site.register(FootballSubstitute, MyModelAdmin)
+admin.site.register(FootballPlayerHalfSeasonStatistics)
