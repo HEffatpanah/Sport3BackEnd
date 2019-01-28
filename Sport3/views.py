@@ -62,9 +62,9 @@ def news(request, news_title, news_id):
 
 def player(request, player_name, player_id):
     json = {
-        'playerInfo':None,
-        'playerRecords':None,
-        'relatedNewsData':[],
+        'playerInfo': None,
+        'playerRecords': None,
+        'relatedNewsData': [],
         'newsData': []
     }
     player = get_object_or_404(Player, name=player_name, uid=player_id)
@@ -75,11 +75,6 @@ def player(request, player_name, player_id):
     json['playerInfo'] = player.get_json()
     json['playerRecords'] = player.get_statistics_json()
     return JsonResponse(json)
-
-
-
-def match():
-    pass
 
 
 @api_view(['GET'])
@@ -140,6 +135,23 @@ def team(request, team_name, team_id):
     json['logo'] = team.logo.url
     json['membersData'] = team.get_members_json()
     json['matchData'] = team.get_matches_json()
+    summery_news = News.objects.filter(tags__name__contains='بازی')
+    for summery_news in summery_news:
+        json['newsData'].append(summery_news.get_summary_json())
+    return JsonResponse(json)
+
+
+@api_view(['GET'])
+def match(request, match_name, match_id):
+    json = {
+        'matchInfo': None,
+        'medias': [],
+        'newsData': [],
+    }
+    match = get_object_or_404(Match, uid=match_id)
+    json['matchInfo'] = match.get_info_json()
+    print('hiii')
+    json['medias'] = match.get_medias_json()
     summery_news = News.objects.filter(tags__name__contains='بازی')
     for summery_news in summery_news:
         json['newsData'].append(summery_news.get_summary_json())

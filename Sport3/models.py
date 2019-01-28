@@ -21,6 +21,13 @@ def get_url(action, model):
 # Create your models here.
 
 
+class Photos(models.Model):
+    def __str__(self):
+        return self.photo.name
+
+    photo = models.ImageField(storage=private_storage)
+
+
 class HalfSeason(models.Model):
     def __str__(self):
         return self.name
@@ -525,8 +532,7 @@ class FootballCard(models.Model):
         return self.player.name + '-' + self.color
 
     color = models.CharField(max_length=256,
-                             choices=[('first yellow', 'first yellow'), ('second yellow', 'second yellow'),
-                                      ('red', 'red')], default='yellow')
+                             choices=[('yellow', 'yellow'), ('red', 'red')], default='yellow')
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
 
@@ -627,6 +633,12 @@ class Match(PolymorphicModel):
     def get_json(self, team):
         pass
 
+    def get_info_json(self):
+        pass
+
+    def get_medias_json(self):
+        pass
+
 
 class FootballMatch(Match):
     best_player = models.ForeignKey(FootballPlayer, null=True, on_delete=models.SET_NULL)
@@ -634,7 +646,10 @@ class FootballMatch(Match):
     team1 = models.ForeignKey(FootballTeam, related_name='home_matches', on_delete=models.CASCADE)
     team2 = models.ForeignKey(FootballTeam, related_name='away_matches', on_delete=models.CASCADE)
     team1_corners = models.PositiveSmallIntegerField()
+    team1_possession = models.FloatField()
+    team2_possession = models.FloatField()
     team2_corners = models.PositiveSmallIntegerField()
+    match_minutes = models.PositiveSmallIntegerField()
     team1_faults = models.PositiveSmallIntegerField()
     team2_faults = models.PositiveSmallIntegerField()
     team1_shoots = models.PositiveSmallIntegerField()
@@ -671,12 +686,148 @@ class FootballMatch(Match):
     team2_assists = models.ManyToManyField(FootballAssist, related_name='away_match', blank=True)
     team1_substitutes = models.ManyToManyField(FootballSubstitute, related_name='home_match', blank=True)
     team2_substitutes = models.ManyToManyField(FootballSubstitute, related_name='away_match', blank=True)
+    medias = models.ManyToManyField(Photos, blank=True)
 
     @property
     def result(self):
         team1_goals = self.team1_goals.count()
         team2_goals = self.team2_goals.count()
         return 0 if team1_goals == team2_goals else -1 if team1_goals < team2_goals else 1
+
+    def get_medias_json(self):
+        result = []
+        for media in self.medias.all():
+            result.append({'url': media.photo.url})
+        return result
+
+    def get_info_json(self):
+        result = {
+            'tableName': 'اطلاعات بازی',
+            'tableType': 'فوتبال',
+            'tableData': None,
+        }
+        match = {
+            'matchMinutes': self.match_minutes,
+            'team1': None,
+            'team2': None,
+        }
+        team1 = {
+            'generalRecords': [],
+            'events': [],
+            'players': {'originalPlayers': [], 'substitutesPlayers': []}
+        }
+
+        team2 = {
+            'generalRecords': [],
+            'events': [],
+            'players': {'originalPlayers': [], 'substitutesPlayers': []}
+        }
+        team1['generalRecords'].append({'featureName': 'خطاها', 'featureValue': self.team1_faults}, )
+        team1['generalRecords'].append({'featureName': 'کرنرها', 'featureValue': self.team1_corners}, )
+        team1['generalRecords'].append({'featureName': 'شوت ها', 'featureValue': self.team1_shoots}, )
+        team1['generalRecords'].append(
+            {'featureName': 'شوت های در چارچوب', 'featureValue': self.team1_shoots_on_target}, )
+        team1['generalRecords'].append({'featureName': 'تعداد گل', 'featureValue': self.team1_goals.count()}, )
+        team1['generalRecords'].append({'featureName': 'درصد مالکیت توپ', 'featureValue': self.team1_possession}, )
+
+        team1_yellow_cards = {'featureName': 'yc', 'featureValue': []}
+        team1_second_yellow_cards = {'featureName': 'syc', 'featureValue': []}
+        team1_red_cards = {'featureName': 'drc', 'featureValue': []}
+        for card in self.team1_cards.all():
+            player_card = self.team1_cards.filter(player=card.player).first()
+            if card.color == 'red':
+                team1_red_cards['featureValue'].append(card.time)
+            if card.time == player_card.time:
+                team1_yellow_cards['featureValue'].append(card.time)
+            else:
+                team1_second_yellow_cards['featureValue'].append(card.time)
+
+        team1['events'].append(team1_yellow_cards)
+        team1['events'].append(team1_second_yellow_cards)
+        team1['events'].append(team1_red_cards)
+
+        for player in self.team1_main_players.all():
+            if self.team1_substitutes.filter(player_out=player).first() is None:
+                replace_time = 'null'
+            else:
+                replace_time = self.team1_substitutes.filter(player_out=player).first().time
+            team1['players']['originalPlayers'].append({
+                'Name': player.name,
+                'Goals': self.team1_goals.filter(player=player).count(),
+                'Post': player.position,
+                'YellowCards': self.team1_cards.filter(player=player, color='yellow').count(),
+                'RedCards': self.team1_cards.filter(player=player, color='red').count(),
+                'ReplaceTime': replace_time
+            })
+
+        for player in self.team1_substitute_players.all():
+            if self.team1_substitutes.filter(player_in=player).first() is None:
+                replace_time = 'null'
+            else:
+                replace_time = self.team1_substitutes.filter(player_in=player).first().time
+            team1['players']['substitutesPlayers'].append({
+                'Name': player.name,
+                'Goals': self.team1_goals.filter(player=player).count(),
+                'Post': player.position,
+                'YellowCards': self.team1_cards.filter(player=player, color='yellow').count(),
+                'RedCards': self.team1_cards.filter(player=player, color='red').count(),
+                'ReplaceTime': replace_time
+            })
+        match['team1'] = team1
+
+        team2['generalRecords'].append({'featureName': 'خطاها', 'featureValue': self.team2_faults}, )
+        team2['generalRecords'].append({'featureName': 'کرنرها', 'featureValue': self.team2_corners}, )
+        team2['generalRecords'].append({'featureName': 'شوت ها', 'featureValue': self.team2_shoots}, )
+        team2['generalRecords'].append(
+            {'featureName': 'شوت های در چارچوب', 'featureValue': self.team2_shoots_on_target}, )
+        team2['generalRecords'].append({'featureName': 'تعداد گل', 'featureValue': self.team2_goals.count()}, )
+        team2['generalRecords'].append({'featureName': 'درصد مالکیت توپ', 'featureValue': self.team2_possession}, )
+        team2_yellow_cards = {'featureName': 'yc', 'featureValue': []}
+        team2_second_yellow_cards = {'featureName': 'syc', 'featureValue': []}
+        team2_red_cards = {'featureName': 'drc', 'featureValue': []}
+        for card in self.team2_cards.all():
+            player_card = self.team2_cards.filter(player=card.player).first()
+            if card.color == 'red':
+                team2_red_cards['featureValue'].append(card.time)
+            if card.time == player_card.time:
+                team2_yellow_cards['featureValue'].append(card.time)
+            else:
+                team2_second_yellow_cards['featureValue'].append(card.time)
+
+        team2['events'].append(team2_yellow_cards)
+        team2['events'].append(team2_second_yellow_cards)
+        team2['events'].append(team2_red_cards)
+
+        for player in self.team2_main_players.all():
+            if self.team2_substitutes.filter(player_out=player).first() is None:
+                replace_time = 'null'
+            else:
+                replace_time = self.team2_substitutes.filter(player_out=player).first().time
+            team2['players']['originalPlayers'].append({
+                'Name': player.name,
+                'Goals': self.team2_goals.filter(player=player).count(),
+                'Post': player.position,
+                'YellowCards': self.team2_cards.filter(player=player, color='yellow').count(),
+                'RedCards': self.team2_cards.filter(player=player, color='red').count(),
+                'ReplaceTime': replace_time
+            })
+
+        for player in self.team2_substitute_players.all():
+            if self.team2_substitutes.filter(player_in=player).first() is None:
+                replace_time = 'null'
+            else:
+                replace_time = self.team2_substitutes.filter(player_in=player).first().time
+            team2['players']['substitutesPlayers'].append({
+                'Name': player.name,
+                'Goals': self.team2_goals.filter(player=player).count(),
+                'Post': player.position,
+                'YellowCards': self.team2_cards.filter(player=player, color='yellow').count(),
+                'RedCards': self.team2_cards.filter(player=player, color='red').count(),
+                'ReplaceTime': replace_time
+            })
+        match['team2'] = team2
+        result['tableData'] = match
+        return result
 
     def get_json(self, team):
         team1_goals = self.team1_goals.count()
@@ -715,6 +866,7 @@ class FootballMatch(Match):
     def get_summary_json(self):
         return (
             {
+                'matchLink': get_url('match', self),
                 'team1Name': self.team1.name,
                 'team1Link': get_url('team', self.team1),
                 'team2Name': self.team2.name,
@@ -792,6 +944,7 @@ class BasketballMatch(Match):
             1, 'مساوی') if team1_final_score == team2_final_score else (0, 'باخت')
         return (
             {
+                'matchLink': get_url('match', self),
                 'ownerTeamGoal': team1_final_score,
                 'opponentTeamGoal': team2_final_score,
                 'date': self.date_time.date(),
@@ -1097,13 +1250,6 @@ def save_league_teams(sender, **kwargs):
             FootballHalfSeasonLeagueTeams.objects.create(league=kwargs['instance'],
                                                          half_season=CurrentHalfSeason.objects.last().current_half_season,
                                                          team=team)
-
-
-class Photos(models.Model):
-    def __str__(self):
-        return self.photo.name
-
-    photo = models.ImageField(storage=private_storage)
 
 
 class NewsTags(models.Model):
