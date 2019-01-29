@@ -532,7 +532,8 @@ class FootballCard(models.Model):
         return self.player.name + '-' + self.color
 
     color = models.CharField(max_length=256,
-                             choices=[('yellow', 'yellow'), ('red', 'red')], default='yellow')
+                             choices=[('first yellow', 'first yellow'), ('second yellow', 'second yellow'),
+                                      ('red', 'red')], default='yellow')
     player = models.ForeignKey(FootballPlayer, on_delete=models.CASCADE)
     time = models.PositiveSmallIntegerField()
 
@@ -646,10 +647,10 @@ class FootballMatch(Match):
     team1 = models.ForeignKey(FootballTeam, related_name='home_matches', on_delete=models.CASCADE)
     team2 = models.ForeignKey(FootballTeam, related_name='away_matches', on_delete=models.CASCADE)
     team1_corners = models.PositiveSmallIntegerField()
-    team1_possession = models.FloatField()
-    team2_possession = models.FloatField()
+    team1_possession = models.FloatField(default=0.0)
+    team2_possession = models.FloatField(default=0.0)
     team2_corners = models.PositiveSmallIntegerField()
-    match_minutes = models.PositiveSmallIntegerField()
+    match_minutes = models.PositiveSmallIntegerField(default=0)
     team1_faults = models.PositiveSmallIntegerField()
     team2_faults = models.PositiveSmallIntegerField()
     team1_shoots = models.PositiveSmallIntegerField()
@@ -742,9 +743,24 @@ class FootballMatch(Match):
             else:
                 team1_second_yellow_cards['featureValue'].append(card.time)
 
+        team1_goals = {
+            'featureName': 'g',
+            'featureValue': [],
+        }
+        for goal in self.team1_goals.all():
+            team1_goals['featureValue'].append(goal.time)
+        team1_substitutes = {
+            'featureName': 's',
+            'featureValue': [],
+        }
+        for substitute in self.team1_substitutes.all():
+            team1_substitutes['featureValue'].append(substitute.time)
         team1['events'].append(team1_yellow_cards)
         team1['events'].append(team1_second_yellow_cards)
         team1['events'].append(team1_red_cards)
+        team1['events'].append(team1_goals)
+        team1['events'].append(team1_substitutes)
+
 
         for player in self.team1_main_players.all():
             if self.team1_substitutes.filter(player_out=player).first() is None:
@@ -793,10 +809,23 @@ class FootballMatch(Match):
                 team2_yellow_cards['featureValue'].append(card.time)
             else:
                 team2_second_yellow_cards['featureValue'].append(card.time)
-
+        team2_goals = {
+            'featureName': 'g',
+            'featureValue': [],
+        }
+        for goal in self.team2_goals.all():
+            team2_goals['featureValue'].append(goal.time)
+        team2_substitutes = {
+            'featureName': 's',
+            'featureValue': [],
+        }
+        for substitute in self.team2_substitutes.all():
+            team2_substitutes['featureValue'].append(substitute.time)
         team2['events'].append(team2_yellow_cards)
         team2['events'].append(team2_second_yellow_cards)
         team2['events'].append(team2_red_cards)
+        team2['events'].append(team2_goals)
+        team2['events'].append(team2_substitutes)
 
         for player in self.team2_main_players.all():
             if self.team2_substitutes.filter(player_out=player).first() is None:
