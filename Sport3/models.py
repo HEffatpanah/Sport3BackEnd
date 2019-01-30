@@ -265,7 +265,7 @@ class BasketballTeam(Team):
         team_members = self.basketballplayer_set.all()
 
         json = {
-            'tableHeader': BasketballPlayer.get_header(),
+            'tableHeader': BasketballPlayer.get_summary_header(),
             'tableBody': [],
         }
         for team_member in team_members:
@@ -276,7 +276,7 @@ class BasketballTeam(Team):
         matches = BasketballMatch.objects.filter(Q(team1=self) | Q(team2=self))[:20]
         json = []
         for match in matches:
-            json.append(match.get_json())
+            json.append(match.get_json(self))
         return json
 
     def get_news_json(self):  # ####################################################################################
@@ -405,7 +405,7 @@ class BasketballPlayer(Player):
                      'featureLink': None},
                     {'featureName': 'position', 'featureValue': self.position, 'featureLink': None},
                     {'featureName': 'photo',
-                     'featureValue': self.photo,
+                     'featureValue': self.photo.url,
                      'featureLink': None},
                 ]
             }
@@ -429,6 +429,33 @@ class BasketballPlayer(Player):
         }
         return json
 
+    def get_statistics_json(self):
+        statistics = BasketballPlayerHalfSeasonStatistics.objects.filter(player=self).order_by('half_season__name')
+        json = {
+            'tableName': 'آمار بازیکن',
+            'tableData': [],
+            'seasons': [],
+        }
+        for statistic in statistics:
+            aux_json = {
+                'data': [
+                    {'featureName': 'تعداد پرتاب های دو امتیازی', 'featureValue': statistic.two_point_number},
+                    {'featureName': 'تعداد پرتاپ های سه امتیازی', 'featureValue': statistic.three_point_number},
+                    {'featureName': 'تعداد خطاها', 'featureValue': statistic.faults_number},
+                    {'featureName': 'تعداد ریباند ها', 'featureValue': statistic.rebounds_numbers},
+                ],
+                'season': statistic.half_season.name
+            }
+            json['seasons'].append(
+                {
+                    'value': statistic.half_season.name,
+                    'text': statistic.half_season.name,
+                }
+            )
+            json['tableData'].append(aux_json)
+
+        return json
+
 
 @receiver(post_save, sender=FootballPlayer)
 def save_team_half_season_members(sender, **kwargs):
@@ -439,6 +466,21 @@ def save_team_half_season_members(sender, **kwargs):
         if kwargs['instance'].team:
             FootballTeamHalfSeasonMembers.objects.create(player=kwargs['instance'], team=kwargs['instance'].team,
                                                          half_season=CurrentHalfSeason.objects.last().current_half_season)
+    else:
+        if kwargs['instance'].team:
+            object.team = kwargs['instance'].team
+            object.save()
+
+
+@receiver(post_save, sender=BasketballPlayer)
+def save_team_half_season_members(sender, **kwargs):
+    try:
+        object = BasketballTeamHalfSeasonMembers.objects.get(player=kwargs['instance'],
+                                                             half_season=CurrentHalfSeason.objects.last().current_half_season)
+    except:
+        if kwargs['instance'].team:
+            BasketballTeamHalfSeasonMembers.objects.create(player=kwargs['instance'], team=kwargs['instance'].team,
+                                                           half_season=CurrentHalfSeason.objects.last().current_half_season)
     else:
         if kwargs['instance'].team:
             object.team = kwargs['instance'].team
@@ -644,13 +686,13 @@ class Match(PolymorphicModel):
 class FootballMatch(Match):
     best_player = models.ForeignKey(FootballPlayer, null=True, on_delete=models.SET_NULL)
     league = models.ForeignKey(FootballLeague, null=True, on_delete=models.SET_NULL)
+    match_minutes = models.PositiveSmallIntegerField(default=0)
     team1 = models.ForeignKey(FootballTeam, related_name='home_matches', on_delete=models.CASCADE)
     team2 = models.ForeignKey(FootballTeam, related_name='away_matches', on_delete=models.CASCADE)
     team1_corners = models.PositiveSmallIntegerField()
+    team2_corners = models.PositiveSmallIntegerField()
     team1_possession = models.FloatField(default=0.0)
     team2_possession = models.FloatField(default=0.0)
-    team2_corners = models.PositiveSmallIntegerField()
-    match_minutes = models.PositiveSmallIntegerField(default=0)
     team1_faults = models.PositiveSmallIntegerField()
     team2_faults = models.PositiveSmallIntegerField()
     team1_shoots = models.PositiveSmallIntegerField()
@@ -711,6 +753,7 @@ class FootballMatch(Match):
             'matchMinutes': self.match_minutes,
             'team1': None,
             'team2': None,
+            'bestPlayer': {'team': self.best_player.team.name, 'name': self.best_player.name},
         }
         team1 = {
             'generalRecords': [],
@@ -735,10 +778,9 @@ class FootballMatch(Match):
         team1_second_yellow_cards = {'featureName': 'syc', 'featureValue': []}
         team1_red_cards = {'featureName': 'drc', 'featureValue': []}
         for card in self.team1_cards.all():
-            player_card = self.team1_cards.filter(player=card.player).first()
             if card.color == 'red':
                 team1_red_cards['featureValue'].append(card.time)
-            if card.time == player_card.time:
+            if card.color == 'first yellow':
                 team1_yellow_cards['featureValue'].append(card.time)
             else:
                 team1_second_yellow_cards['featureValue'].append(card.time)
@@ -749,18 +791,31 @@ class FootballMatch(Match):
         }
         for goal in self.team1_goals.all():
             team1_goals['featureValue'].append(goal.time)
+        team1_assists = {
+            'featureName': 'a',
+            'featureValue': [],
+        }
+        for assist in self.team1_assists.all():
+            team1_assists['featureValue'].append(assist.time)
         team1_substitutes = {
             'featureName': 's',
             'featureValue': [],
         }
         for substitute in self.team1_substitutes.all():
             team1_substitutes['featureValue'].append(substitute.time)
+        team1_penalties = {
+            'featureName': 'p',
+            'featureValue': [],
+        }
+        for penalty in self.team1_penalty.all():
+            team1_penalties['featureValue'].append(penalty.time)
         team1['events'].append(team1_yellow_cards)
         team1['events'].append(team1_second_yellow_cards)
         team1['events'].append(team1_red_cards)
         team1['events'].append(team1_goals)
+        team1['events'].append(team1_assists)
         team1['events'].append(team1_substitutes)
-
+        team1['events'].append(team1_penalties)
 
         for player in self.team1_main_players.all():
             if self.team1_substitutes.filter(player_out=player).first() is None:
@@ -771,7 +826,8 @@ class FootballMatch(Match):
                 'Name': player.name,
                 'Goals': self.team1_goals.filter(player=player).count(),
                 'Post': player.position,
-                'YellowCards': self.team1_cards.filter(player=player, color='yellow').count(),
+                'YellowCards': self.team1_cards.filter(
+                    Q(player=player) & Q(Q(color='first yellow') | Q(color='second yellow'))).count(),
                 'RedCards': self.team1_cards.filter(player=player, color='red').count(),
                 'ReplaceTime': replace_time
             })
@@ -785,7 +841,8 @@ class FootballMatch(Match):
                 'Name': player.name,
                 'Goals': self.team1_goals.filter(player=player).count(),
                 'Post': player.position,
-                'YellowCards': self.team1_cards.filter(player=player, color='yellow').count(),
+                'YellowCards': self.team1_cards.filter(
+                    Q(player=player) & Q(Q(color='first yellow') | Q(color='second yellow'))).count(),
                 'RedCards': self.team1_cards.filter(player=player, color='red').count(),
                 'ReplaceTime': replace_time
             })
@@ -802,10 +859,9 @@ class FootballMatch(Match):
         team2_second_yellow_cards = {'featureName': 'syc', 'featureValue': []}
         team2_red_cards = {'featureName': 'drc', 'featureValue': []}
         for card in self.team2_cards.all():
-            player_card = self.team2_cards.filter(player=card.player).first()
             if card.color == 'red':
                 team2_red_cards['featureValue'].append(card.time)
-            if card.time == player_card.time:
+            if card.color == 'first yellow':
                 team2_yellow_cards['featureValue'].append(card.time)
             else:
                 team2_second_yellow_cards['featureValue'].append(card.time)
@@ -815,16 +871,30 @@ class FootballMatch(Match):
         }
         for goal in self.team2_goals.all():
             team2_goals['featureValue'].append(goal.time)
+        team2_assists = {
+            'featureName': 'a',
+            'featureValue': [],
+        }
+        for assist in self.team2_assists.all():
+            team2_assists['featureValue'].append(assist.time)
         team2_substitutes = {
             'featureName': 's',
             'featureValue': [],
         }
         for substitute in self.team2_substitutes.all():
             team2_substitutes['featureValue'].append(substitute.time)
+        team2_penalties = {
+            'featureName': 'p',
+            'featureValue': [],
+        }
+        for penalty in self.team2_penalty.all():
+            team2_penalties['featureValue'].append(penalty.time)
         team2['events'].append(team2_yellow_cards)
         team2['events'].append(team2_second_yellow_cards)
         team2['events'].append(team2_red_cards)
         team2['events'].append(team2_goals)
+        team2['events'].append(team2_assists)
+        team2['events'].append(team2_penalties)
         team2['events'].append(team2_substitutes)
 
         for player in self.team2_main_players.all():
@@ -836,7 +906,8 @@ class FootballMatch(Match):
                 'Name': player.name,
                 'Goals': self.team2_goals.filter(player=player).count(),
                 'Post': player.position,
-                'YellowCards': self.team2_cards.filter(player=player, color='yellow').count(),
+                'YellowCards': self.team2_cards.filter(
+                    Q(player=player) & Q(Q(color='first yellow') | Q(color='second yellow'))).count(),
                 'RedCards': self.team2_cards.filter(player=player, color='red').count(),
                 'ReplaceTime': replace_time
             })
@@ -850,7 +921,8 @@ class FootballMatch(Match):
                 'Name': player.name,
                 'Goals': self.team2_goals.filter(player=player).count(),
                 'Post': player.position,
-                'YellowCards': self.team2_cards.filter(player=player, color='yellow').count(),
+                'YellowCards': self.team2_cards.filter(
+                    Q(player=player) & Q(Q(color='first yellow') | Q(color='second yellow'))).count(),
                 'RedCards': self.team2_cards.filter(player=player, color='red').count(),
                 'ReplaceTime': replace_time
             })
@@ -913,6 +985,7 @@ class FootballMatch(Match):
 class BasketballMatch(Match):
     best_player = models.ForeignKey(BasketballPlayer, null=True, on_delete=models.SET_NULL)
     league = models.ForeignKey(BasketballLeague, null=True, on_delete=models.SET_NULL)
+    match_minutes = models.PositiveSmallIntegerField(default=0)
     team1 = models.ForeignKey(BasketballTeam, related_name='home_matches', on_delete=models.CASCADE)
     team2 = models.ForeignKey(BasketballTeam, related_name='away_matches', on_delete=models.CASCADE)
     team1_two_points = models.ManyToManyField(BasketballTwoPoint, related_name='home_match', blank=True)
@@ -959,12 +1032,181 @@ class BasketballMatch(Match):
                                                       verbose_name='team2_substitute_players', chained_field="team2",
                                                       chained_model_field="team",
                                                       related_name='away_match_substitute')
+    medias = models.ManyToManyField(Photos, blank=True)
 
     @property
     def result(self):
         team1_scores = self.team1_final_score
         team2_scores = self.team2_final_score
         return 0 if team1_scores == team2_scores else -1 if team1_scores < team2_scores else 1
+
+    def get_medias_json(self):
+        result = []
+        for media in self.medias.all():
+            result.append({'url': media.photo.url})
+        return result
+
+    def get_info_json(self):
+        result = {
+            'tableName': 'اطلاعات بازی',
+            'tableType': 'بسکتبال',
+            'tableData': None,
+        }
+        match = {
+            'matchMinutes': self.match_minutes,
+            'team1': None,
+            'team2': None,
+        }
+        team1 = {
+            'generalRecords': [],
+            'events': [],
+            'players': {'originalPlayers': [], 'substitutesPlayers': []}
+        }
+
+        team2 = {
+            'generalRecords': [],
+            'events': [],
+            'players': {'originalPlayers': [], 'substitutesPlayers': []}
+        }
+        team1['generalRecords'].append(
+            {'featureName': 'پرتاب های دو امتیازی', 'featureValue': self.team1_two_points.all().count()}, )
+        team1['generalRecords'].append(
+            {'featureName': 'پرتاپ های سه امتیازی', 'featureValue': self.team1_three_points.all().count()}, )
+        team1['generalRecords'].append({'featureName': 'خطاها', 'featureValue': self.team1_faults.all().count()}, )
+        team1['generalRecords'].append(
+            {'featureName': 'خطاهای پنالتی', 'featureValue': self.team1_penalty_faults.all().count()}, )
+        team1['generalRecords'].append({'featureName': 'امتیاز نهایی', 'featureValue': self.team1_final_score}, )
+        team1['generalRecords'].append(
+            {'featureName': 'امتیاز کواتر اول', 'featureValue': self.team1_first_quarter_score}, )
+        team1['generalRecords'].append(
+            {'featureName': 'امتیاز کواتر دوم', 'featureValue': self.team1_second_quarter_score}, )
+        team1['generalRecords'].append(
+            {'featureName': 'امتیاز کواتر سوم', 'featureValue': self.team1_third_quarter_score}, )
+        team1['generalRecords'].append(
+            {'featureName': 'امتیاز کواتر چهارم', 'featureValue': self.team1_first_quarter_score}, )
+
+        team1_three_points = {'featureName': 'three_point', 'featureValue': []}
+        team1_two_points = {'featureName': 'two_point', 'featureValue': []}
+        team1_penalty_faults = {'featureName': 'penalty_faults', 'featureValue': []}
+        team1_penalty_faileds = {'featureName': 'penalty_faileds', 'featureValue': []}
+        team1_substitutes = {'featureName': 's', 'featureValue': []}
+        team1_rebounds = {'featureName': 'rebounds', 'featureValue': []}
+        for o in self.team1_three_points.all():
+            team1_three_points['featureValue'].append(o.time)
+        for o in self.team1_two_points.all():
+            team1_two_points['featureValue'].append(o.time)
+        for o in self.team1_penalty_faults.all():
+            team1_penalty_faults['featureValue'].append(o.time)
+        for o in self.team1_penalty_failed.all():
+            team1_penalty_faileds['featureValue'].append(o.time)
+        for o in self.team1_substitutes.all():
+            team1_substitutes['featureValue'].append(o.time)
+        for o in self.team1_rebounds.all():
+            team1_rebounds['featureValue'].append(o.time)
+
+        team1['events'].append(team1_three_points)
+        team1['events'].append(team1_two_points)
+        team1['events'].append(team1_penalty_faults)
+        team1['events'].append(team1_penalty_faileds)
+        team1['events'].append(team1_substitutes)
+        team1['events'].append(team1_rebounds)
+
+        for player in self.team1_main_players.all():
+            if self.team1_substitutes.filter(player_out=player).first() is None:
+                replace_time = 'null'
+            else:
+                replace_time = self.team1_substitutes.filter(player_out=player).first().time
+            team1['players']['originalPlayers'].append({
+                'Name': player.name,
+                'TwoPoints': self.team1_two_points.filter(player=player).count(),
+                'ThreePoints': self.team1_three_points.filter(player=player).count(),
+                'Rebounds': self.team1_rebounds.filter(player=player).count(),
+                'ReplaceTime': replace_time
+            })
+
+        for player in self.team1_substitute_players.all():
+            if self.team1_substitutes.filter(player_in=player).first() is None:
+                replace_time = 'null'
+            else:
+                replace_time = self.team1_substitutes.filter(player_in=player).first().time
+            team1['players']['substitutesPlayers'].append({
+                'Name': player.name,
+                'TwoPoints': self.team1_two_points.filter(player=player).count(),
+                'ThreePoints': self.team1_three_points.filter(player=player).count(),
+                'Rebounds': self.team1_rebounds.filter(player=player).count(),
+                'ReplaceTime': replace_time
+            })
+        match['team1'] = team1
+        team2['generalRecords'].append(
+            {'featureName': 'پرتاب های دو امتیازی', 'featureValue': self.team2_two_points.all().count()}, )
+        team2['generalRecords'].append(
+            {'featureName': 'پرتاپ های سه امتیازی', 'featureValue': self.team2_three_points.all().count()}, )
+        team2['generalRecords'].append({'featureName': 'خطاها', 'featureValue': self.team1_faults.all().count()}, )
+        team2['generalRecords'].append(
+            {'featureName': 'خطاهای پنالتی', 'featureValue': self.team2_penalty_faults.all().count()}, )
+        team2['generalRecords'].append({'featureName': 'امتیاز نهایی', 'featureValue': self.team2_final_score}, )
+        team2['generalRecords'].append(
+            {'featureName': 'امتیاز کواتر اول', 'featureValue': self.team2_first_quarter_score}, )
+        team2['generalRecords'].append(
+            {'featureName': 'امتیاز کواتر دوم', 'featureValue': self.team2_second_quarter_score}, )
+        team2['generalRecords'].append(
+            {'featureName': 'امتیاز کواتر سوم', 'featureValue': self.team2_third_quarter_score}, )
+        team2['generalRecords'].append(
+            {'featureName': 'امتیاز کواتر چهارم', 'featureValue': self.team2_first_quarter_score}, )
+
+        team2_three_points = {'featureName': 'three_point', 'featureValue': []}
+        team2_two_points = {'featureName': 'two_point', 'featureValue': []}
+        team2_penalty_faults = {'featureName': 'penalty_faults', 'featureValue': []}
+        team2_penalty_faileds = {'featureName': 'penalty_faileds', 'featureValue': []}
+        team2_substitutes = {'featureName': 's', 'featureValue': []}
+        team2_rebounds = {'featureName': 'rebounds', 'featureValue': []}
+        for o in self.team2_three_points.all():
+            team2_three_points['featureValue'].append(o.time)
+        for o in self.team2_two_points.all():
+            team2_two_points['featureValue'].append(o.time)
+        for o in self.team2_penalty_faults.all():
+            team2_penalty_faults['featureValue'].append(o.time)
+        for o in self.team2_penalty_failed.all():
+            team2_penalty_faileds['featureValue'].append(o.time)
+        for o in self.team2_substitutes.all():
+            team2_substitutes['featureValue'].append(o.time)
+        for o in self.team2_rebounds.all():
+            team2_rebounds['featureValue'].append(o.time)
+        team2['events'].append(team2_three_points)
+        team2['events'].append(team2_two_points)
+        team2['events'].append(team2_penalty_faults)
+        team2['events'].append(team2_penalty_faileds)
+        team2['events'].append(team2_substitutes)
+        team2['events'].append(team2_rebounds)
+
+        for player in self.team2_main_players.all():
+            if self.team2_substitutes.filter(player_out=player).first() is None:
+                replace_time = 'null'
+            else:
+                replace_time = self.team2_substitutes.filter(player_out=player).first().time
+            team2['players']['originalPlayers'].append({
+                'Name': player.name,
+                'TwoPoints': self.team2_two_points.filter(player=player).count(),
+                'ThreePoints': self.team2_three_points.filter(player=player).count(),
+                'Rebounds': self.team2_rebounds.filter(player=player).count(),
+                'ReplaceTime': replace_time
+            })
+
+        for player in self.team2_substitute_players.all():
+            if self.team2_substitutes.filter(player_in=player).first() is None:
+                replace_time = 'null'
+            else:
+                replace_time = self.team2_substitutes.filter(player_in=player).first().time
+            team2['players']['substitutesPlayers'].append({
+                'Name': player.name,
+                'TwoPoints': self.team2_two_points.filter(player=player).count(),
+                'ThreePoints': self.team2_three_points.filter(player=player).count(),
+                'Rebounds': self.team2_rebounds.filter(player=player).count(),
+                'ReplaceTime': replace_time
+            })
+        match['team2'] = team2
+        result['tableData'] = match
+        return result
 
     def get_json(self, team):
         team1_final_score = self.team1_final_score
@@ -987,6 +1229,7 @@ class BasketballMatch(Match):
     def get_summary_json(self):
         return (
             {
+                'matchLink': get_url('match', self),
                 'team1Name': self.team1.name,
                 'team1Link': get_url('team', self.team1),
                 'team2Name': self.team2.name,
@@ -1107,6 +1350,111 @@ def save_football_player_half_season_assists(sender, **kwargs):
             statistic.save()
 
 
+@receiver(m2m_changed, sender=BasketballMatch.team1_two_points.through)
+@receiver(m2m_changed, sender=BasketballMatch.team2_two_points.through)
+def save_basketball_player_half_season_two_points(sender, **kwargs):
+    match = kwargs['instance']
+    if kwargs['action'] == 'pre_remove':
+        pks = kwargs['pk_set']
+        for pk in pks:
+            player = BasketballTwoPoint.objects.get(pk=pk).player
+            statistic = BasketballPlayerHalfSeasonStatistics.objects.get(player=player, half_season=match.half_season)
+            statistic.two_point_number -= 1
+            statistic.save()
+    if kwargs['action'] == 'post_add':
+        pks = kwargs['pk_set']
+        for pk in pks:
+            player = BasketballTwoPoint.objects.get(pk=pk).player
+            statistic, created = BasketballPlayerHalfSeasonStatistics.objects.get_or_create(player=player,
+                                                                                            half_season=match.half_season)
+            statistic.two_point_number += 1
+            statistic.save()
+
+
+@receiver(m2m_changed, sender=BasketballMatch.team1_three_points.through)
+@receiver(m2m_changed, sender=BasketballMatch.team2_three_points.through)
+def save_basketball_player_half_season_three_points(sender, **kwargs):
+    match = kwargs['instance']
+    if kwargs['action'] == 'pre_remove':
+        pks = kwargs['pk_set']
+        for pk in pks:
+            player = BasketballThreePoint.objects.get(pk=pk).player
+            statistic = BasketballPlayerHalfSeasonStatistics.objects.get(player=player, half_season=match.half_season)
+            statistic.three_point_number -= 1
+            statistic.save()
+    if kwargs['action'] == 'post_add':
+        pks = kwargs['pk_set']
+        for pk in pks:
+            player = BasketballThreePoint.objects.get(pk=pk).player
+            statistic, created = BasketballPlayerHalfSeasonStatistics.objects.get_or_create(player=player,
+                                                                                            half_season=match.half_season)
+            statistic.three_point_number += 1
+            statistic.save()
+
+
+@receiver(m2m_changed, sender=BasketballMatch.team1_faults.through)
+@receiver(m2m_changed, sender=BasketballMatch.team2_faults.through)
+def save_basketball_player_half_season_faults(sender, **kwargs):
+    match = kwargs['instance']
+    if kwargs['action'] == 'pre_remove':
+        pks = kwargs['pk_set']
+        for pk in pks:
+            player = BasketballFault.objects.get(pk=pk).player
+            statistic = BasketballPlayerHalfSeasonStatistics.objects.get(player=player, half_season=match.half_season)
+            statistic.faults_number -= 1
+            statistic.save()
+    if kwargs['action'] == 'post_add':
+        pks = kwargs['pk_set']
+        for pk in pks:
+            player = BasketballFault.objects.get(pk=pk).player
+            statistic, created = BasketballPlayerHalfSeasonStatistics.objects.get_or_create(player=player,
+                                                                                            half_season=match.half_season)
+            statistic.faults_number += 1
+            statistic.save()
+
+
+@receiver(m2m_changed, sender=BasketballMatch.team1_rebounds.through)
+@receiver(m2m_changed, sender=BasketballMatch.team2_rebounds.through)
+def save_basketball_player_half_season_rebounds(sender, **kwargs):
+    match = kwargs['instance']
+    if kwargs['action'] == 'pre_remove':
+        pks = kwargs['pk_set']
+        for pk in pks:
+            player = BasketballRebound.objects.get(pk=pk).player
+            statistic = BasketballPlayerHalfSeasonStatistics.objects.get(player=player, half_season=match.half_season)
+            statistic.rebounds_numbers -= 1
+            statistic.save()
+    if kwargs['action'] == 'post_add':
+        pks = kwargs['pk_set']
+        for pk in pks:
+            player = BasketballRebound.objects.get(pk=pk).player
+            statistic, created = BasketballPlayerHalfSeasonStatistics.objects.get_or_create(player=player,
+                                                                                            half_season=match.half_season)
+            statistic.rebounds_numbers += 1
+            statistic.save()
+
+
+@receiver(m2m_changed, sender=BasketballMatch.team1_penalty_faults.through)
+@receiver(m2m_changed, sender=BasketballMatch.team2_penalty_faults.through)
+def save_basketball_player_half_season_penalty_faults(sender, **kwargs):
+    match = kwargs['instance']
+    if kwargs['action'] == 'pre_remove':
+        pks = kwargs['pk_set']
+        for pk in pks:
+            player = BasketballPenaltyFault.objects.get(pk=pk).player
+            statistic = BasketballPlayerHalfSeasonStatistics.objects.get(player=player, half_season=match.half_season)
+            statistic.penalty_faults_number -= 1
+            statistic.save()
+    if kwargs['action'] == 'post_add':
+        pks = kwargs['pk_set']
+        for pk in pks:
+            player = BasketballPenaltyFault.objects.get(pk=pk).player
+            statistic, created = BasketballPlayerHalfSeasonStatistics.objects.get_or_create(player=player,
+                                                                                            half_season=match.half_season)
+            statistic.penalty_faults_number += 1
+            statistic.save()
+
+
 class TeamMatchPlayersList(PolymorphicModel):
     main_substitute = models.BooleanField()  # 1 for main 0 for substitute
 
@@ -1154,6 +1502,30 @@ def save_team_match_members(sender, **kwargs):
             player = FootballPlayer.objects.get(pk=pk)
             FootballMatchPlayersList.objects.create(player=player, match=kwargs['instance'],
                                                     team=team, main_substitute=main)
+
+
+@receiver(m2m_changed, sender=BasketballMatch.team1_substitute_players.through)
+@receiver(m2m_changed, sender=BasketballMatch.team2_substitute_players.through)
+@receiver(m2m_changed, sender=BasketballMatch.team1_main_players.through)
+@receiver(m2m_changed, sender=BasketballMatch.team2_main_players.through)
+def save_team_match_members(sender, **kwargs):
+    team = kwargs[
+        'instance'].team1 if sender == BasketballMatch.team1_substitute_players.through or sender == BasketballMatch.team1_main_players.through else \
+        kwargs['instance'].team2
+    main = True if sender == BasketballMatch.team1_main_players.through or sender == BasketballMatch.team2_main_players.through else False
+    if kwargs['action'] == 'post_remove':
+        pks = kwargs['pk_set']
+
+        for pk in pks:
+            player = BasketballPlayer.objects.get(pk=pk)
+            BasketballMatchPlayersList.objects.get(player=player, match=kwargs['instance'],
+                                                   team=team, main_substitute=main).delete()
+    if kwargs['action'] == 'post_add':
+        pks = kwargs['pk_set']
+        for pk in pks:
+            player = BasketballPlayer.objects.get(pk=pk)
+            BasketballMatchPlayersList.objects.create(player=player, match=kwargs['instance'],
+                                                      team=team, main_substitute=main)
 
 
 class HalfSeasonLeagueTeams(PolymorphicModel):
