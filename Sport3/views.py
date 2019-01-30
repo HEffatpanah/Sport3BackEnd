@@ -1,14 +1,18 @@
 import json
 
-from django.http import JsonResponse
+from django.contrib.auth import authenticate
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.status import *
 
 from Sport3.models import *
 
 
 @api_view(['GET', 'POST'])
+@permission_classes((AllowAny,))
 def home(request):
     last_football_news = FootballNews.objects.order_by('-date_time')[:10]
     last_basketball_news = BasketballNews.objects.order_by('-date_time')[:10]
@@ -46,6 +50,7 @@ def home(request):
 
 
 @api_view(['GET', 'POST'])
+@permission_classes((AllowAny,))
 def news(request, news_title, news_id):
     json = {
         'newDetail': None,
@@ -78,6 +83,7 @@ def player(request, player_name, player_id):
 
 
 @api_view(['GET'])
+@permission_classes((AllowAny,))
 def league(request, league_name, season_name, id):
     json = {
         'teams': [],
@@ -123,6 +129,7 @@ def league(request, league_name, season_name, id):
 
 
 @api_view(['GET'])
+@permission_classes((AllowAny,))
 def team(request, team_name, team_id):
     json = {
         'membersData': None,
@@ -142,6 +149,7 @@ def team(request, team_name, team_id):
 
 
 @api_view(['GET'])
+@permission_classes((AllowAny,))
 def match(request, match_name, match_id):
     json = {
         'matchInfo': None,
@@ -158,12 +166,43 @@ def match(request, match_name, match_id):
     return JsonResponse(json)
 
 
-def login():
-    pass
+@api_view(["POST"])
+@permission_classes((AllowAny,))
+def login(request):
+    data = json.loads(request.body.decode('utf-8'))
+    try:
+        SiteUser.objects.get(username=data['username'], password=data['password'])
+    except:
+        return Response({'message': 'not successful'})
+    else:
+        return Response({'message': 'successful'})
 
 
-def signup():
-    pass
+@api_view(["POST"])
+@permission_classes((AllowAny,))
+def signup(request):
+    data = json.loads(request.body.decode('utf-8'))
+    empty_fields = []
+    empty = False
+    for key, value in data.items():
+        if not value or value == 'false':
+            empty_fields.append(key)
+            empty = True
+    if empty:
+        # print(empty_fields)
+        # return HttpResponse('empty_fields')
+        # response['fields'] = empty_fields
+        # return response
+        return Response({'fields': empty_fields, 'message': 'empty_fields'})
+    if data['password'] != data['confirm_pass']:
+        return Response({'message': 'pass and confirm are not equal'})
+    try:
+        SiteUser.objects.create(username=data['username'], password=data['password'],
+                                first_name=data['first_name'], last_name=data['last_name'],
+                                email=data['email'])
+    except:
+        return Response({'message': 'user exists‬'})
+    return Response({'message': 'user created‬'})
 
 
 def forgotten():

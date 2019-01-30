@@ -1304,7 +1304,7 @@ class NewsSources(models.Model):
 
 
 class SiteUser(User):
-    favorite_home_news_number = models.SmallIntegerField()
+    favorite_home_news_number = models.SmallIntegerField(null=True)
     favorite_teams = models.ManyToManyField(Team)
     favorite_players = models.ManyToManyField(Player)
 
