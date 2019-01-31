@@ -18,7 +18,21 @@ def get_url(action, model):
     return 'http://127.0.0.1:3000/sport3/{0}/{1}/{2}'.format(action, aux[0], aux[1])
 
 
-# Create your models here.
+def get_related_news(keys, sport, title_search, tags_search, body_search):
+    results = None
+    query = Q()
+    for word in keys:
+        if title_search:
+            query |= Q(title__icontains=word)
+        if body_search:
+            query |= Q(body_text__icontains=word)
+        if tags_search:
+            query |= Q(tags__name__icontains=word)
+    if sport == 'football':
+        results = FootballNews.objects.filter(query).all()
+    elif sport == 'basketball':
+        results = FootballNews.objects.filter(query).all()
+    return results
 
 
 class Photos(models.Model):
@@ -216,7 +230,7 @@ class Team(PolymorphicModel):
     def get_matches_json(self):
         pass
 
-    def get_news_json(self):
+    def get_news(self, title_serach, tags_serach, body_serach):
         pass
 
     logo = models.ImageField(storage=private_storage, default='biel-morro-128512-unsplash.jpg')
@@ -249,12 +263,12 @@ class FootballTeam(Team):
             json.append(match.get_json(self))
         return json
 
-    def get_news_json(self):  # ####################################################################################
-        news = FootballNews.objects.filter()[:20]
-        json = []
-        for news in news:
-            json.append(news.get_summary_json())
-        return json
+    def get_news(self, title_serach, tags_serach, body_serach):
+        keys = [self.name]
+        for player in self.footballplayer_set.all():
+            keys.append(player.name)
+        related_news = get_related_news(keys, 'football', title_serach, tags_serach, body_serach).order_by('-date_time')
+        return related_news
 
 
 class BasketballTeam(Team):
@@ -279,12 +293,13 @@ class BasketballTeam(Team):
             json.append(match.get_json(self))
         return json
 
-    def get_news_json(self):  # ####################################################################################
-        news = BasketballNews.objects.filter()[:20]
-        json = []
-        for news in news:
-            json.append(news.get_summary_json())
-        return json
+    def get_news(self, title_serach, tags_serach, body_serach):
+        keys = [self.name]
+        for player in self.basketballplayer_set.all():
+            keys.append(player.name)
+        related_news = get_related_news(keys, 'basketball', title_serach, tags_serach, body_serach).order_by(
+            '-date_time')
+        return related_news
 
 
 class Player(PolymorphicModel):
@@ -304,6 +319,9 @@ class Player(PolymorphicModel):
         pass
 
     def get_statistics_json(self):
+        pass
+
+    def get_news(self, title_serach, tags_serach, body_serach):
         pass
 
     @staticmethod
@@ -387,6 +405,12 @@ class FootballPlayer(Player):
 
         return json
 
+    def get_news(self, title_serach, tags_serach, body_serach):
+        keys = [self.name]
+        related_news = get_related_news(keys, 'basketball', title_serach, tags_serach, body_serach).order_by(
+            '-date_time')
+        return related_news
+
 
 class BasketballPlayer(Player):
     position = models.CharField(max_length=20)
@@ -455,6 +479,12 @@ class BasketballPlayer(Player):
             json['tableData'].append(aux_json)
 
         return json
+
+    def get_news(self, title_serach, tags_serach, body_serach):
+        keys = [self.name]
+        related_news = get_related_news(keys, 'basketball', title_serach, tags_serach, body_serach).order_by(
+            '-date_time')
+        return related_news
 
 
 @receiver(post_save, sender=FootballPlayer)

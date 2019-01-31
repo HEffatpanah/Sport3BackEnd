@@ -73,10 +73,10 @@ def player(request, player_name, player_id):
         'newsData': []
     }
     player = get_object_or_404(Player, name=player_name, uid=player_id)
-    summery_news = News.objects.order_by('-date_time')[:10]
-    for summery_news in summery_news:
-        json['relatedNewsData'].append(summery_news.get_summary_json())
-        json['newsData'].append(summery_news.get_slides_json())
+    summery_news = player.get_news(True, True, True)[:10]
+    for news in summery_news:
+        json['relatedNewsData'].append(news.get_summary_json())
+        json['newsData'].append(news.get_slides_json())
     json['playerInfo'] = player.get_json()
     json['playerRecords'] = player.get_statistics_json()
     return JsonResponse(json)
@@ -142,9 +142,9 @@ def team(request, team_name, team_id):
     json['logo'] = team.logo.url
     json['membersData'] = team.get_members_json()
     json['matchData'] = team.get_matches_json()
-    summery_news = News.objects.filter(tags__name__contains='بازی')
-    for summery_news in summery_news:
-        json['newsData'].append(summery_news.get_summary_json())
+    summery_news = team.get_news(True, True, True)[:10]
+    for news in summery_news:
+        json['newsData'].append(news.get_summary_json())
     return JsonResponse(json)
 
 
