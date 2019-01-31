@@ -643,10 +643,23 @@ class BasketballRebound(models.Model):
     time = models.PositiveSmallIntegerField()
 
 
+class OnlineNews(models.Model):
+    title = models.CharField(max_length=200, blank=True)
+
+    def get_summary_json(self):
+        return (
+            {
+                'title': self.title,
+                'link': '',
+            }
+        )
+
+
 class Match(PolymorphicModel):
     uid = models.UUIDField(default=uuid.uuid4(), editable=False)
     date_time = models.DateTimeField()
     half_season = models.ForeignKey(HalfSeason, null=True, on_delete=models.SET_NULL)
+    online_news = models.ManyToManyField(OnlineNews, blank=True)
 
     def __str__(self):
         return self.team1.name + '-' + self.team2.name
@@ -680,6 +693,12 @@ class Match(PolymorphicModel):
         pass
 
     def get_medias_json(self):
+        pass
+
+    def get_news_json(self):
+        pass
+
+    def fringe_news(self):
         pass
 
 
@@ -730,6 +749,7 @@ class FootballMatch(Match):
     team1_substitutes = models.ManyToManyField(FootballSubstitute, related_name='home_match', blank=True)
     team2_substitutes = models.ManyToManyField(FootballSubstitute, related_name='away_match', blank=True)
     medias = models.ManyToManyField(Photos, blank=True)
+    fringe_news = models.ManyToManyField('FootballNews', related_name='home_match', blank=True)
 
     @property
     def result(self):
@@ -981,6 +1001,19 @@ class FootballMatch(Match):
             }
         )
 
+    def get_news_json(self):
+        online_news = self.online_news.all()
+        fringe_news = self.fringe_news.all()
+        news_data = {
+            'online': [],
+            'fringe': []
+        }
+        for news in online_news:
+            news_data['online'].append(news.get_summary_json())
+        for news in fringe_news:
+            news_data['fringe'].append(news.get_summary_json())
+        return news_data
+
 
 class BasketballMatch(Match):
     best_player = models.ForeignKey(BasketballPlayer, null=True, on_delete=models.SET_NULL)
@@ -1033,6 +1066,7 @@ class BasketballMatch(Match):
                                                       chained_model_field="team",
                                                       related_name='away_match_substitute')
     medias = models.ManyToManyField(Photos, blank=True)
+    fringe_news = models.ManyToManyField('BasketballNews', related_name='home_match', blank=True)
 
     @property
     def result(self):
@@ -1242,6 +1276,19 @@ class BasketballMatch(Match):
                 else self.date_time.date()
             }
         )
+
+    def get_news_json(self):
+        online_news = self.online_news.all()
+        fringe_news = self.fringe_news.all()
+        news_data = {
+            'online': [],
+            'fringe': []
+        }
+        for news in online_news:
+            news_data['online'].append(news.get_summary_json())
+        for news in fringe_news:
+            news_data['fringe'].append(news.get_summary_json())
+        return news_data
 
 
 class PlayerHalfSeasonStatistics(PolymorphicModel):
@@ -1679,6 +1726,8 @@ class SiteUser(User):
     favorite_home_news_number = models.SmallIntegerField(null=True)
     favorite_teams = models.ManyToManyField(Team)
     favorite_players = models.ManyToManyField(Player)
+    confirm_id = models.CharField(max_length=30, editable=False, default='')
+    confirmed = models.BooleanField(default=False)
 
 
 class News(PolymorphicModel):
@@ -1701,10 +1750,10 @@ class News(PolymorphicModel):
     title = models.CharField(max_length=100)
     body_text = models.TextField()
     date_time = models.DateTimeField()
-    tags = models.ManyToManyField(NewsTags)
-    sources = models.ManyToManyField(NewsSources)
+    tags = models.ManyToManyField(NewsTags, blank=True)
+    sources = models.ManyToManyField(NewsSources, blank=True)
     main_images = models.ForeignKey(Photos, null=True, on_delete=models.SET_NULL)
-    more_images = models.ManyToManyField(Photos, related_name='news1')
+    more_images = models.ManyToManyField(Photos, related_name='news1', blank=True)
     # league = models.ManyToManyField(League)
     # match = models.ManyToManyField(Match)
     # player = models.ManyToManyField(Player)

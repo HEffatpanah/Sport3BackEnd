@@ -1,6 +1,8 @@
 import json
-
+import string, random
 from django.contrib.auth import authenticate
+from django.contrib.sessions.models import Session
+from django.core.mail import send_mail
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404
 from rest_framework.response import Response
@@ -154,15 +156,18 @@ def match(request, match_name, match_id):
     json = {
         'matchInfo': None,
         'medias': [],
-        'newsData': [],
+        'onlineNewsData': [],
+        'fringeNewsData': [],
     }
     match = get_object_or_404(Match, uid=match_id)
     json['matchInfo'] = match.get_info_json()
-    print('hiii')
+
     json['medias'] = match.get_medias_json()
-    summery_news = News.objects.filter(tags__name__contains='بازی')
-    for summery_news in summery_news:
-        json['newsData'].append(summery_news.get_summary_json())
+    # summery_news = News.objects.filter(tags__name__contains='بازی')
+    # for summery_news in summery_news:
+    news = match.get_news_json()
+    json['onlineNewsData'] = news['online']
+    json['fringeNewsData'] = news['fringe']
     return JsonResponse(json)
 
 
@@ -170,12 +175,14 @@ def match(request, match_name, match_id):
 @permission_classes((AllowAny,))
 def login(request):
     data = json.loads(request.body.decode('utf-8'))
-    try:
-        SiteUser.objects.get(username=data['username'], password=data['password'])
-    except:
+    user = authenticate(username=data['username'], password=data['password'])
+    # print(user, data['username'], data['password'])
+    if user is None:
         return Response({'message': 'not successful'})
     else:
-        return Response({'message': 'successful'})
+        if SiteUser.objects.get(username=data['username']).confirmed:
+            return Response({'message': 'successful'})
+        return Response({'message': 'not confirmed'})
 
 
 @api_view(["POST"])
@@ -189,21 +196,82 @@ def signup(request):
             empty_fields.append(key)
             empty = True
     if empty:
-        # print(empty_fields)
-        # return HttpResponse('empty_fields')
-        # response['fields'] = empty_fields
-        # return response
         return Response({'fields': empty_fields, 'message': 'empty_fields'})
     if data['password'] != data['confirm_pass']:
         return Response({'message': 'pass and confirm are not equal'})
     try:
-        SiteUser.objects.create(username=data['username'], password=data['password'],
-                                first_name=data['first_name'], last_name=data['last_name'],
-                                email=data['email'])
+        user = SiteUser.objects.create_user(username=data['username'], password=data['password'],
+                                            first_name=data['first_name'], last_name=data['last_name'],
+                                            email=data['email'])
+
     except:
         return Response({'message': 'user exists‬'})
+    digits = "".join([random.choice(string.digits) for i in range(14)])
+    chars = "".join([random.choice(string.ascii_letters) for i in range(15)])
+    user.confirm_id = digits + chars
+    user.save()
+    link = 'http://localhost:3000/sport3/confirm/' + str(user.username) + '/' + str(user.confirm_id)
+    send_mail(
+        'تایید حساب کاربری',
+        'روی لینک زیر کلیک کنید تا حسابتان تایید شود\n\n' + link,
+        'khani.ali1376@gmail.com',
+        [user.email],
+        fail_silently=False,
+    )
     return Response({'message': 'user created‬'})
 
 
-def forgotten():
-    pass
+@api_view(["POST"])
+@permission_classes((AllowAny,))
+def logout(request):
+    data = json.loads(request.body.decode('utf-8'))
+    user = User.objects.get(username=data['username'])
+    # print(user.is_authenticated)
+    # print(request.user)
+    # print(user.is_authenticated)
+    return Response({'message': 'user logged out‬'})
+
+
+@api_view(["POST"])
+@permission_classes((AllowAny,))
+def forgotten(request):
+    data = json.loads(request.body.decode('utf-8'))
+    if SiteUser.objects.filter(username=data['username'], email=data['email']).exists():
+        user = SiteUser.objects.get(username=data['username'])
+        link = 'http://localhost:3000/sport3/pass_change/' + str(user.confirm_id)
+        message = 'برای تغییر رمز روی لینک زیر کلیک کنید\n' + link
+        send_mail(
+            'فراموشی رمز عبور',
+            message,
+            'khani.ali1376@gmail.com',
+            [user.email],
+            fail_silently=False,
+        )
+        return Response({'message': 'email has been sent successfully'})
+    else:
+        return Response({'message': 'username or email is wrong'})
+
+
+@api_view(["GET"])
+@permission_classes((AllowAny,))
+def confirm(request, username, confirm_id):
+    if SiteUser.objects.filter(username=username).exists():
+        user = SiteUser.objects.get(username=username)
+        if user.confirm_id == confirm_id:
+            user.confirmed = True
+            user.save()
+            return Response({'message': 'account has been confirmed'})
+    return Response({'message': 'there is a problem'})
+
+
+@api_view(["POST"])
+@permission_classes((AllowAny,))
+def change_pass(request, user_id):
+    data = json.loads(request.body.decode('utf-8'))
+    if data['password'] != data['confirm_pass']:
+        return Response({'message': 'pass and confirm are not equal'})
+    u = SiteUser.objects.get(confirm_id=user_id)
+    # u = SiteUser.objects.get(username=user.username)
+    u.set_password(data['password'])
+    u.save()
+    return Response({'message': 'pass changed'})

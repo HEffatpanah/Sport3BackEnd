@@ -12,6 +12,9 @@ urlpatterns = [
     path('league/<league_name>/<season_name>/<id>', views.league, name='league'),
     path('login', views.login, name='login'),
     path('signup', views.signup, name='signup'),
-    path('forgotten', views.forgotten, name='forgotten'),
+    path('pass_forgotten', views.forgotten, name='forgotten'),
+    path('logout', views.logout, name='logout'),
     url(r'^chaining/', include('smart_selects.urls')),
+    path('confirm/<username>/<confirm_id>', views.confirm, name='confirm'),
+    path('pass_change/<user_id>', views.change_pass, name='pass_change')
 ]
