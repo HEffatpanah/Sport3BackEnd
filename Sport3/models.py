@@ -178,8 +178,10 @@ class BasketballLeague(League):
             'link': None,
         }
         half_season = CurrentHalfSeason.objects.last().current_half_season
+
         aux_json['name'] = self.name + '(' + half_season.name + ')'
-        aux_json['link'] = get_url('league', half_season)
+        aux_json['link'] = get_url('league/' + self.name, half_season)
+
         json = {
             'leagueName': self.name,
             'sessions': [aux_json]
@@ -187,19 +189,20 @@ class BasketballLeague(League):
         return json
 
     def get_old_half_seasons_json(self):
-        half_season = self.half_season.filter(~Q(name=CurrentHalfSeason.objects.last().current_half_season.name))
+        half_seasons = self.half_season.filter(~Q(name=CurrentHalfSeason.objects.last().current_half_season.name))
         aux_json = {
             'name': None,
             'link': None,
         }
-        for half_season in half_season:
-            aux_json['name'] = str(self.name) + '(' + str(half_season.name) + ')'
-            aux_json['link'] = get_url('leagues', half_season)
-            half_season.append(aux_json)
         json = {
             'leagueName': self.name,
-            'sessions': half_season
+            'sessions': []
         }
+        for half_season in half_seasons:
+            aux_json['name'] = str(self.name) + '(' + str(half_season.name) + ')'
+            aux_json['link'] = get_url('league/' + self.name, half_season)
+            json['sessions'].append(aux_json)
+
         return json
 
 

@@ -1,10 +1,12 @@
-import json
+import json as Json
 import string, random
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, logout, login
+from django.contrib.auth.decorators import login_required
 from django.contrib.sessions.models import Session
 from django.core.mail import send_mail
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404
+from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -16,6 +18,7 @@ from Sport3.models import *
 @api_view(['GET', 'POST'])
 @permission_classes((AllowAny,))
 def home(request):
+    print(request.user, '\n\n\n')
     last_football_news = FootballNews.objects.order_by('-date_time')[:10]
     last_basketball_news = BasketballNews.objects.order_by('-date_time')[:10]
     football_matches = FootballMatch.objects.order_by('-date_time')[:50]
@@ -54,6 +57,7 @@ def home(request):
 @api_view(['GET', 'POST'])
 @permission_classes((AllowAny,))
 def news(request, news_title, news_id):
+    print(request.user)
     json = {
         'newDetail': None,
         'newsData': []
@@ -68,6 +72,7 @@ def news(request, news_title, news_id):
 
 
 def player(request, player_name, player_id):
+    print(request.user)
     json = {
         'playerInfo': None,
         'playerRecords': None,
@@ -87,6 +92,7 @@ def player(request, player_name, player_id):
 @api_view(['GET'])
 @permission_classes((AllowAny,))
 def league(request, league_name, season_name, id):
+    print(request.user)
     json = {
         'teams': [],
         'current_leagues': {'football': [], 'basketball': []},
@@ -108,11 +114,12 @@ def league(request, league_name, season_name, id):
     json['matchSummaryData'] = league.get_matches_json(half_season)
     json['teams'] = [league.get_teams_json(half_season)]
 
-    # print(league, league.uid, '\n\n\n\n')
     football_leagues = FootballLeague.objects.all()
     basketball_leagues = BasketballLeague.objects.all()
     old_leagues = []
     current_leagues = []
+
+    print('qwe\n\n\n\n')
     for fleague in football_leagues:
         old_leagues.append(fleague.get_old_half_seasons_json())
         current_leagues.append(fleague.get_current_half_seasons_json())
@@ -120,25 +127,32 @@ def league(request, league_name, season_name, id):
     json['current_leagues']['football'] = current_leagues
     old_leagues = []
     current_leagues = []
+
     for bleague in basketball_leagues:
         old_leagues.append(bleague.get_old_half_seasons_json())
         current_leagues.append(bleague.get_current_half_seasons_json())
     json['old_leagues']['basketball'] = old_leagues
     json['current_leagues']['basketball'] = current_leagues
+    # print(json, '\n\n\n\n')
     # json['current_leagues'] = league.get_current_half_seasons_json()
     # json['old_leagues'] = league.get_old_half_seasons_json()
     return JsonResponse(json)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @permission_classes((AllowAny,))
 def team(request, team_name, team_id):
+    print(request.user)
+    logged_in = 'no'
+    if request.user.is_authenticated:
+        logged_in = 'yes'
     json = {
         'membersData': None,
         'matchesData': None,
         'newsData': [],
         'teamName': team_name,
         'logo': None,
+        'logged_in': logged_in
     }
     team = Team.objects.get(name=team_name, uid=team_id)
     json['logo'] = team.logo.url
@@ -173,36 +187,39 @@ def match(request, match_name, match_id):
 
 @api_view(["POST"])
 @permission_classes((AllowAny,))
-def login(request):
-    data = json.loads(request.body.decode('utf-8'))
-    user = authenticate(username=data['username'], password=data['password'])
-    # print(user, data['username'], data['password'])
+def login_site(request):
+    user = authenticate(username=request.POST['username'], password=request.POST['password'])
     if user is None:
         return Response({'message': 'not successful'})
     else:
-        if SiteUser.objects.get(username=data['username']).confirmed:
-            return Response({'message': 'successful'})
+        if SiteUser.objects.get(username=request.POST['username']).confirmed:
+            token, _ = Token.objects.get_or_create(user=user)
+            login(request, user)
+            return Response({'token': token.key, 'message': 'successful'}, status=HTTP_200_OK)
+
+            # login(request, user)
+            # print('jkjkkj', request.user)
+            # return Response({'message': 'successful'})
         return Response({'message': 'not confirmed'})
 
 
 @api_view(["POST"])
 @permission_classes((AllowAny,))
 def signup(request):
-    data = json.loads(request.body.decode('utf-8'))
     empty_fields = []
     empty = False
-    for key, value in data.items():
+    for key, value in request.POST.items():
         if not value or value == 'false':
             empty_fields.append(key)
             empty = True
     if empty:
         return Response({'fields': empty_fields, 'message': 'empty_fields'})
-    if data['password'] != data['confirm_pass']:
+    if request.POST['password'] != request.POST['confirm_pass']:
         return Response({'message': 'pass and confirm are not equal'})
     try:
-        user = SiteUser.objects.create_user(username=data['username'], password=data['password'],
-                                            first_name=data['first_name'], last_name=data['last_name'],
-                                            email=data['email'])
+        user = SiteUser.objects.create_user(username=request.POST['username'], password=request.POST['password'],
+                                            first_name=request.POST['first_name'], last_name=request.POST['last_name'],
+                                            email=request.POST['email'])
 
     except:
         return Response({'message': 'user exists‬'})
@@ -223,21 +240,16 @@ def signup(request):
 
 @api_view(["POST"])
 @permission_classes((AllowAny,))
-def logout(request):
-    data = json.loads(request.body.decode('utf-8'))
-    user = User.objects.get(username=data['username'])
-    # print(user.is_authenticated)
-    # print(request.user)
-    # print(user.is_authenticated)
+def logout_user(request):
+    logout(request)
     return Response({'message': 'user logged out‬'})
 
 
 @api_view(["POST"])
 @permission_classes((AllowAny,))
 def forgotten(request):
-    data = json.loads(request.body.decode('utf-8'))
-    if SiteUser.objects.filter(username=data['username'], email=data['email']).exists():
-        user = SiteUser.objects.get(username=data['username'])
+    if SiteUser.objects.filter(username=request.POST['username'], email=request.POST['email']).exists():
+        user = SiteUser.objects.get(username=request.POST['username'])
         link = 'http://localhost:3000/sport3/pass_change/' + str(user.confirm_id)
         message = 'برای تغییر رمز روی لینک زیر کلیک کنید\n' + link
         send_mail(
@@ -267,11 +279,40 @@ def confirm(request, username, confirm_id):
 @api_view(["POST"])
 @permission_classes((AllowAny,))
 def change_pass(request, user_id):
-    data = json.loads(request.body.decode('utf-8'))
-    if data['password'] != data['confirm_pass']:
+    if request.POST['password'] != request.POST['confirm_pass']:
         return Response({'message': 'pass and confirm are not equal'})
     u = SiteUser.objects.get(confirm_id=user_id)
     # u = SiteUser.objects.get(username=user.username)
-    u.set_password(data['password'])
+    u.set_password(request.POST['password'])
     u.save()
     return Response({'message': 'pass changed'})
+
+
+@api_view(["POST"])
+@permission_classes((AllowAny,))
+def subscribe(request):
+    data = Json.loads(request.body.decode('utf-8'))
+    user = SiteUser.objects.get(username=data['username'])
+    if data['type'] == 'team1':
+        team = Team.objects.get(name=data['name'])
+        user.favorite_teams.add(team)
+        user.save()
+    elif data['type'] == 'team0':
+        team = Team.objects.get(name=data['name'])
+        try:
+            user.favorite_teams.remove(team)
+            user.save()
+        except:
+            pass
+    elif data['type'] == 'player1':
+        player = Player.objects.get(name=data['name'])
+        user.favorite_players.add(player)
+        user.save()
+    elif data['type'] == 'player0':
+        player = Player.objects.get(name=data['name'])
+        try:
+            user.favorite_players.remove(player)
+            user.save()
+        except:
+            pass
+    return Response({'message': 'subscription action completed'})
