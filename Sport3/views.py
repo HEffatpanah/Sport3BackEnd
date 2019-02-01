@@ -81,6 +81,7 @@ def player(request, player_name, player_id):
             'relatedNewsData': [],
         }
         mode = request.POST['mode']
+        print(mode)
         summery_news = player.get_news(mode == '1', mode == '2', mode == '3')[:10]
         print(summery_news.count())
         for news in summery_news:

@@ -411,7 +411,7 @@ class FootballPlayer(Player):
 
     def get_news(self, title_serach, tags_serach, body_serach):
         keys = [self.name]
-        related_news = get_related_news(keys, 'basketball', title_serach, tags_serach, body_serach).order_by(
+        related_news = get_related_news(keys, 'football', title_serach, tags_serach, body_serach).order_by(
             '-date_time')
         return related_news
 
