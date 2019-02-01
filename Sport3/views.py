@@ -61,6 +61,35 @@ def home(request):
         json['football']['newsTable']['last'].append(f.get_summary_json())
     for f in last_basketball_news:
         json['basketball']['newsTable']['last'].append(f.get_summary_json())
+    try:
+        user = request.user
+        site_user = SiteUser.objects.get(username=user.username)
+        summery_news = []
+        for team in site_user.favorite_teams.all():
+            summery_news.extend(team.get_news(True, True, True))
+        for player in site_user.favorite_players.all():
+            summery_news.extend(player.get_news(True, True, True))
+            summery_news = summery_news.values_list('title', flat=True).distinct.order_by('-date_time')[:20]
+        if len(summery_news) == 0:
+            json['football']['newsTable']['favorite'].append({'title': 'شما هنوز اخباری دنبال نمیکنید', 'link': ''})
+            json['basketball']['newsTable']['favorite'].append({'title': 'شما هنوز اخباری دنبال نمیکنید', 'link': ''})
+        for news in summery_news:
+            json['football']['newsTable']['favorite'].append(news.get_summary_json())
+            json['basketball']['newsTable']['favorite'].append(news.get_summary_json())
+    except:
+        json['football']['newsTable']['favorite'].append({'title': 'شما وارد نشده اید', 'link': ''})
+        json['basketball']['newsTable']['favorite'].append({'title': 'شما وارد نشده اید', 'link': ''})
+
+    json['football']['matchesTable']['tableBody'].append({'league_season': None, 'matches': []})
+    json['basketball']['matchesTable']['tableBody'].append({'league_season': None, 'matches': []})
+    football_matches = FootballMatch.objects.all()
+    basketball_matches = BasketballMatch.objects.all()
+    for match in football_matches:
+        if match.team1 in site_user.favorite_teams.all() or match.team2 in site_user.favorite_teams.all():
+            json['football']['matchesTable']['tableBody'][1]['matches'].append(match.get_summary_json())
+    for match in basketball_matches:
+        if match.team1 in site_user.favorite_teams.all() or match.team2 in site_user.favorite_teams.all():
+            json['basketball']['matchesTable']['tableBody'][1]['matches'].append(match.get_summary_json())
     return JsonResponse(json)
 
 
@@ -71,7 +100,8 @@ def news(request, news_title, news_id):
     if request.method == 'POST' and request.user.is_authenticated:
         user = SiteUser.objects.get(username=request.user.username)
         news = News.objects.get(title=news_title, uid=news_id)
-        comment = Comments.objects.create(text=request.POST['comment'], user=user, time=datetime.datetime.now(), news=news)
+        comment = Comments.objects.create(text=request.POST['comment'], user=user, time=datetime.datetime.now(),
+                                          news=news)
         comment.save()
         news.comments_set.add(comment)
         news.save()
@@ -142,7 +172,7 @@ def player(request, player_name, player_id):
     return JsonResponse(json)
 
 
-@api_view(['GET','POST'])
+@api_view(['GET', 'POST'])
 @permission_classes((AllowAny,))
 def league(request, league_name, season_name, id):
     print(request.user)
@@ -164,10 +194,10 @@ def league(request, league_name, season_name, id):
             'matchSummaryData': [],
         }
         week = int(request.POST['week'])
-        match['matchSummaryData'] = league.get_matches_json(half_season,week)
+        match['matchSummaryData'] = league.get_matches_json(half_season, week)
         return JsonResponse(match)
 
-    json['matchSummaryData'] = league.get_matches_json(half_season,0)
+    json['matchSummaryData'] = league.get_matches_json(half_season, 0)
     json['teams'] = [league.get_teams_json(half_season)]
 
     football_leagues = FootballLeague.objects.all()
