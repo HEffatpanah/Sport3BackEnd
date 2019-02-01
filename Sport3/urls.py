@@ -17,5 +17,4 @@ urlpatterns = [
     url(r'^chaining/', include('smart_selects.urls')),
     path('confirm/<username>/<confirm_id>', views.confirm, name='confirm'),
     path('pass_change/<user_id>', views.change_pass, name='pass_change'),
-    path('subscribe', views.subscribe, name='subscribe'),
 ]

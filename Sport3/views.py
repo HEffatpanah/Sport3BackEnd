@@ -68,6 +68,14 @@ def home(request):
 @permission_classes((AllowAny,))
 def news(request, news_title, news_id):
     print(request.user)
+    if request.method == 'POST' and request.user.is_authenticated:
+        user = SiteUser.objects.get(username=request.user.username)
+        news = News.objects.get(title=news_title, uid=news_id)
+        comment = Comments.objects.create(text=request.POST['comment'], user=user, time=datetime.datetime.now(), news=news)
+        comment.save()
+        news.comments_set.add(comment)
+        news.save()
+        return Response({'message': 'comment added'})
     json = {
         'newDetail': None,
         'newsData': []
@@ -81,7 +89,7 @@ def news(request, news_title, news_id):
     return JsonResponse(json)
 
 
-@api_view(['GET','POST'])
+@api_view(['GET', 'POST'])
 @permission_classes((AllowAny,))
 def player(request, player_name, player_id):
     print(request.user)
@@ -97,6 +105,20 @@ def player(request, player_name, player_id):
         for news in summery_news:
             json['relatedNewsData'].append(news.get_summary_json())
         return JsonResponse(json)
+    elif request.method == "POST" and request.POST['type'] == 'subscribe':
+        user = SiteUser.objects.get(username=request.user.username)
+        if request.user.is_authenticated:
+            if request.POST['add_remove'] == 'add':
+                user.favorite_players.add(player)
+                user.save()
+            elif request.POST['add_remove'] == 'remove':
+                try:
+                    user.favorite_players.remove(player)
+                    user.save()
+                except:
+                    pass
+            return Response({'message': 'subscription action completed'})
+        return Response({'message': 'subscription action not completed'})
     logged_in = 'no'
     if request.user.is_authenticated:
         logged_in = 'yes'
@@ -135,10 +157,6 @@ def league(request, league_name, season_name, id):
         league = DefaultLeague.objects.last().default_league
         half_season = CurrentHalfSeason.objects.last().current_half_season
     else:
-        i = HalfSeason.objects.all()
-        for a in i:
-            print(a.name, a.uid)
-        print(season_name, id)
         league = get_object_or_404(League, name=league_name)
         half_season = get_object_or_404(HalfSeason, name=season_name, uid=id)
 
@@ -149,8 +167,6 @@ def league(request, league_name, season_name, id):
     basketball_leagues = BasketballLeague.objects.all()
     old_leagues = []
     current_leagues = []
-
-    print('qwe\n\n\n\n')
     for fleague in football_leagues:
         old_leagues.append(fleague.get_old_half_seasons_json())
         current_leagues.append(fleague.get_current_half_seasons_json())
@@ -184,6 +200,20 @@ def team(request, team_name, team_id):
         for news in summery_news:
             json['newsData'].append(news.get_summary_json())
         return JsonResponse(json)
+    elif request.method == "POST" and request.POST['type'] == 'subscribe':
+        user = SiteUser.objects.get(username=request.user.username)
+        if request.user.is_authenticated:
+            if request.POST['add_remove'] == 'add':
+                user.favorite_teams.add(team)
+                user.save()
+            elif request.POST['add_remove'] == 'remove':
+                try:
+                    user.favorite_teams.remove(team)
+                    user.save()
+                except:
+                    pass
+            return Response({'message': 'subscription action completed'})
+        return Response({'message': 'subscription action not completed'})
     else:
         logged_in = 'no'
         if request.user.is_authenticated:
@@ -332,33 +362,3 @@ def change_pass(request, user_id):
     u.set_password(request.POST['password'])
     u.save()
     return Response({'message': 'pass changed'})
-
-
-@api_view(["POST"])
-@permission_classes((AllowAny,))
-def subscribe(request):
-    user = SiteUser.objects.get(username=request.POST['username'])
-    if request.POST['type'] == 'team1':
-        team = Team.objects.get(name=request.POST['name'])
-        user.favorite_teams.add(team)
-        user.save()
-    elif request.POST['type'] == 'team0':
-        team = Team.objects.get(name=request.POST['name'])
-        try:
-            user.favorite_teams.remove(team)
-            user.save()
-        except:
-            pass
-    elif request.POST['type'] == 'player1':
-        player = Player.objects.get(name=request.POST['name'])
-        user.favorite_players.add(player)
-        print(player.name, '\n\n\n')
-        user.save()
-    elif request.POST['type'] == 'player0':
-        player = Player.objects.get(name=request.POST['name'])
-        try:
-            user.favorite_players.remove(player)
-            user.save()
-        except:
-            pass
-    return Response({'message': 'subscription action completed'})

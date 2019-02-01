@@ -98,7 +98,7 @@ class FootballLeague(League):
 
     def get_matches_json(self, half_season):
         json = {
-            'tableHeader': ['نام تیم', 'نتیجه', 'نام تیم', 'تاریخ'],
+            'tableHeader': ['تیم اول', 'نتیجه', 'تیم دوم', 'تاریخ'],
             'tableBody': []
         }
         aux_json = {'league_season': self.name + '(' + str(half_season.name) + ')', 'matches': []}
@@ -694,6 +694,7 @@ class Match(PolymorphicModel):
     date_time = models.DateTimeField()
     half_season = models.ForeignKey(HalfSeason, null=True, on_delete=models.SET_NULL)
     online_news = models.ManyToManyField(OnlineNews, blank=True)
+    week = models.PositiveSmallIntegerField(default=0)
 
     def __str__(self):
         return self.team1.name + '-' + self.team2.name
@@ -739,19 +740,19 @@ class Match(PolymorphicModel):
 class FootballMatch(Match):
     best_player = models.ForeignKey(FootballPlayer, null=True, on_delete=models.SET_NULL, blank=True)
     league = models.ForeignKey(FootballLeague, null=True, on_delete=models.SET_NULL)
-    match_minutes = models.PositiveSmallIntegerField(default=0, blank=True)
+    match_minutes = models.PositiveSmallIntegerField(default=0, blank=True, null=True)
     team1 = models.ForeignKey(FootballTeam, related_name='home_matches', on_delete=models.CASCADE)
     team2 = models.ForeignKey(FootballTeam, related_name='away_matches', on_delete=models.CASCADE)
-    team1_corners = models.PositiveSmallIntegerField(blank=True)
-    team2_corners = models.PositiveSmallIntegerField(blank=True)
-    team1_possession = models.FloatField(default=0.0, blank=True)
-    team2_possession = models.FloatField(default=0.0, blank=True)
-    team1_faults = models.PositiveSmallIntegerField(blank=True)
-    team2_faults = models.PositiveSmallIntegerField(blank=True)
-    team1_shoots = models.PositiveSmallIntegerField(blank=True)
-    team2_shoots = models.PositiveSmallIntegerField(blank=True)
-    team1_shoots_on_target = models.PositiveSmallIntegerField(blank=True)
-    team2_shoots_on_target = models.PositiveSmallIntegerField(blank=True)
+    team1_corners = models.PositiveSmallIntegerField(blank=True, null=True)
+    team2_corners = models.PositiveSmallIntegerField(blank=True, null=True)
+    team1_possession = models.FloatField(default=0.0, blank=True, null=True)
+    team2_possession = models.FloatField(default=0.0, blank=True, null=True)
+    team1_faults = models.PositiveSmallIntegerField(blank=True, null=True)
+    team2_faults = models.PositiveSmallIntegerField(blank=True, null=True)
+    team1_shoots = models.PositiveSmallIntegerField(blank=True, null=True)
+    team2_shoots = models.PositiveSmallIntegerField(blank=True, null=True)
+    team1_shoots_on_target = models.PositiveSmallIntegerField(blank=True, null=True)
+    team2_shoots_on_target = models.PositiveSmallIntegerField(blank=True, null=True)
     team1_main_players = ChainedManyToManyField(FootballPlayer,
                                                 horizontal=True,
                                                 verbose_name='team1_main_players', chained_field="team1",
@@ -1030,7 +1031,7 @@ class FootballMatch(Match):
                 'team2Goal': self.team2_goals.count(),
                 'date': 'امروز' if self.date_time.date() == datetime.datetime.now().date()
                 else 'دیروز' if self.date_time.date() == datetime.datetime.now().date() - datetime.timedelta(days=1)
-                else 'فردا' if self.date_time.date() == datetime.datetime.now().date() - datetime.timedelta(days=1)
+                else 'فردا' if self.date_time.date() == datetime.datetime.now().date() + datetime.timedelta(days=1)
                 else self.date_time.date()
             }
         )
@@ -1052,7 +1053,7 @@ class FootballMatch(Match):
 class BasketballMatch(Match):
     best_player = models.ForeignKey(BasketballPlayer, null=True, on_delete=models.SET_NULL, blank=True)
     league = models.ForeignKey(BasketballLeague, null=True, on_delete=models.SET_NULL)
-    match_minutes = models.PositiveSmallIntegerField(default=0, blank=True)
+    match_minutes = models.PositiveSmallIntegerField(default=0, blank=True, null=True)
     team1 = models.ForeignKey(BasketballTeam, related_name='home_matches', on_delete=models.CASCADE)
     team2 = models.ForeignKey(BasketballTeam, related_name='away_matches', on_delete=models.CASCADE)
     team1_two_points = models.ManyToManyField(BasketballTwoPoint, related_name='home_match', blank=True)
@@ -1063,16 +1064,16 @@ class BasketballMatch(Match):
     team2_faults = models.ManyToManyField(BasketballFault, related_name='away_matches', blank=True)
     team1_penalty_faults = models.ManyToManyField(BasketballPenaltyFault, related_name='home_match', blank=True)
     team2_penalty_faults = models.ManyToManyField(BasketballPenaltyFault, related_name='away_matches', blank=True)
-    team1_final_score = models.PositiveSmallIntegerField(blank=True)
-    team2_final_score = models.PositiveSmallIntegerField(blank=True)
-    team1_first_quarter_score = models.PositiveSmallIntegerField(blank=True)
-    team2_first_quarter_score = models.PositiveSmallIntegerField(blank=True)
-    team1_second_quarter_score = models.PositiveSmallIntegerField(blank=True)
-    team2_second_quarter_score = models.PositiveSmallIntegerField(blank=True)
-    team1_third_quarter_score = models.PositiveSmallIntegerField(blank=True)
-    team2_third_quarter_score = models.PositiveSmallIntegerField(blank=True)
-    team1_fourth_quarter_score = models.PositiveSmallIntegerField(blank=True)
-    team2_fourth_quarter_score = models.PositiveSmallIntegerField(blank=True)
+    team1_final_score = models.PositiveSmallIntegerField(blank=True, null=True)
+    team2_final_score = models.PositiveSmallIntegerField(blank=True, null=True)
+    team1_first_quarter_score = models.PositiveSmallIntegerField(blank=True, null=True)
+    team2_first_quarter_score = models.PositiveSmallIntegerField(blank=True, null=True)
+    team1_second_quarter_score = models.PositiveSmallIntegerField(blank=True, null=True)
+    team2_second_quarter_score = models.PositiveSmallIntegerField(blank=True, null=True)
+    team1_third_quarter_score = models.PositiveSmallIntegerField(blank=True, null=True)
+    team2_third_quarter_score = models.PositiveSmallIntegerField(blank=True, null=True)
+    team1_fourth_quarter_score = models.PositiveSmallIntegerField(blank=True, null=True)
+    team2_fourth_quarter_score = models.PositiveSmallIntegerField(blank=True, null=True)
     team1_rebounds = models.ManyToManyField(BasketballRebound, related_name='home_match', blank=True)
     team2_rebounds = models.ManyToManyField(BasketballRebound, related_name='away_matches', blank=True)
     team1_penalty_failed = models.ManyToManyField(BasketballPenaltyFailed, related_name='home_match', blank=True)
@@ -1083,7 +1084,7 @@ class BasketballMatch(Match):
                                                 horizontal=True,
                                                 verbose_name='team1_main_players', chained_field="team1",
                                                 chained_model_field="team",
-                                                related_name='home_match_main',blank=True)
+                                                related_name='home_match_main', blank=True)
     team1_substitute_players = ChainedManyToManyField(BasketballPlayer,
                                                       horizontal=True,
                                                       verbose_name='team1_substitute_players', chained_field="team1",
@@ -1306,7 +1307,7 @@ class BasketballMatch(Match):
                 'team2Goal': self.team2_final_score,
                 'date': 'امروز' if self.date_time.date() == datetime.datetime.now().date()
                 else 'دیروز' if self.date_time.date() == datetime.datetime.now().date() - datetime.timedelta(days=1)
-                else 'فردا' if self.date_time.date() == datetime.datetime.now().date() - datetime.timedelta(days=1)
+                else 'فردا' if self.date_time.date() == datetime.datetime.now().date() + datetime.timedelta(days=1)
                 else self.date_time.date()
             }
         )
@@ -1812,7 +1813,7 @@ class FootballNews(News):
             'sources': [],
             'tages': [],
             'body': self.body_text,
-            'comments': None
+            'comments': []
         }
         more_images = self.more_images.all()
         sources = self.sources.all()
@@ -1823,6 +1824,11 @@ class FootballNews(News):
             json['sources'].append(source.get_json())
         for tag in tags:
             json['tages'].append(tag.get_json())
+        if self.comments_set.all().count():
+            for comment in self.comments_set.all():
+                if comment.confirmed:
+                    json['comments'].append(comment.get_json())
+
         return json
 
     def get_slides_json(self):
@@ -1882,7 +1888,15 @@ class Comments(models.Model):
     def __str__(self):
         return self.text
 
+    def get_json(self):
+        return {
+            'name': self.user.first_name,
+            'comment': self.text,
+            'date': self.time
+        }
+
+    confirmed = models.BooleanField(default=False)
     text = models.CharField(max_length=400)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    time = models.PositiveSmallIntegerField()
+    time = models.DateField()
     news = models.ForeignKey(News, on_delete=models.CASCADE)
