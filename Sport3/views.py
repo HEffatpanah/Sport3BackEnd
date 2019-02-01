@@ -19,11 +19,21 @@ from Sport3.models import *
 @permission_classes((AllowAny,))
 def home(request):
     print(request.user, '\n\n\n')
+    if request.method == 'POST':
+        if request.user.is_authenticated:
+            site_user = SiteUser.objects.get(username=request.user.username)
+            site_user.favorite_home_news_number = request.POST['number_of_news']
+            site_user.save()
     last_football_news = FootballNews.objects.order_by('-date_time')[:10]
     last_basketball_news = BasketballNews.objects.order_by('-date_time')[:10]
+    if request.user.is_authenticated:
+        site_user = SiteUser.objects.get(username=request.user.username)
+        last_football_news = FootballNews.objects.order_by('-date_time')[:site_user.favorite_home_news_number]
+        last_basketball_news = BasketballNews.objects.order_by('-date_time')[:site_user.favorite_home_news_number]
     football_matches = FootballMatch.objects.order_by('-date_time')[:50]
     basketball_matches = BasketballMatch.objects.order_by('-date_time')[:50]
     json = {
+        'logged_in': 'yes' if request.user.is_authenticated else 'no',
         'football': {
             'matchesTable': {
                 'tableHeader': ['نام تیم', 'نتیجه', 'نام تیم', 'تاریخ'],

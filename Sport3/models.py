@@ -736,41 +736,41 @@ class Match(PolymorphicModel):
 
 
 class FootballMatch(Match):
-    best_player = models.ForeignKey(FootballPlayer, null=True, on_delete=models.SET_NULL)
+    best_player = models.ForeignKey(FootballPlayer, null=True, on_delete=models.SET_NULL, blank=True)
     league = models.ForeignKey(FootballLeague, null=True, on_delete=models.SET_NULL)
-    match_minutes = models.PositiveSmallIntegerField(default=0)
+    match_minutes = models.PositiveSmallIntegerField(default=0, blank=True)
     team1 = models.ForeignKey(FootballTeam, related_name='home_matches', on_delete=models.CASCADE)
     team2 = models.ForeignKey(FootballTeam, related_name='away_matches', on_delete=models.CASCADE)
-    team1_corners = models.PositiveSmallIntegerField()
-    team2_corners = models.PositiveSmallIntegerField()
-    team1_possession = models.FloatField(default=0.0)
-    team2_possession = models.FloatField(default=0.0)
-    team1_faults = models.PositiveSmallIntegerField()
-    team2_faults = models.PositiveSmallIntegerField()
-    team1_shoots = models.PositiveSmallIntegerField()
-    team2_shoots = models.PositiveSmallIntegerField()
-    team1_shoots_on_target = models.PositiveSmallIntegerField()
-    team2_shoots_on_target = models.PositiveSmallIntegerField()
+    team1_corners = models.PositiveSmallIntegerField(blank=True)
+    team2_corners = models.PositiveSmallIntegerField(blank=True)
+    team1_possession = models.FloatField(default=0.0, blank=True)
+    team2_possession = models.FloatField(default=0.0, blank=True)
+    team1_faults = models.PositiveSmallIntegerField(blank=True)
+    team2_faults = models.PositiveSmallIntegerField(blank=True)
+    team1_shoots = models.PositiveSmallIntegerField(blank=True)
+    team2_shoots = models.PositiveSmallIntegerField(blank=True)
+    team1_shoots_on_target = models.PositiveSmallIntegerField(blank=True)
+    team2_shoots_on_target = models.PositiveSmallIntegerField(blank=True)
     team1_main_players = ChainedManyToManyField(FootballPlayer,
                                                 horizontal=True,
                                                 verbose_name='team1_main_players', chained_field="team1",
                                                 chained_model_field="team",
-                                                related_name='home_match_main')
+                                                related_name='home_match_main', blank=True)
     team1_substitute_players = ChainedManyToManyField(FootballPlayer,
                                                       horizontal=True,
                                                       verbose_name='team1_substitute_players', chained_field="team1",
                                                       chained_model_field="team",
-                                                      related_name='home_match_substitute')
+                                                      related_name='home_match_substitute', blank=True)
     team2_main_players = ChainedManyToManyField(FootballPlayer,
                                                 horizontal=True,
                                                 verbose_name='team2_main_players', chained_field="team2",
                                                 chained_model_field="team",
-                                                related_name='away_match_main')
+                                                related_name='away_match_main', blank=True)
     team2_substitute_players = ChainedManyToManyField(FootballPlayer,
                                                       horizontal=True,
                                                       verbose_name='team2_substitute_players', chained_field="team2",
                                                       chained_model_field="team",
-                                                      related_name='away_match_substitute')
+                                                      related_name='away_match_substitute', blank=True)
     team1_goals = models.ManyToManyField(Goal, related_name='home_match', blank=True)
     team2_goals = models.ManyToManyField(Goal, related_name='away_match', blank=True)
     team1_cards = models.ManyToManyField(FootballCard, related_name='home_match', blank=True)
@@ -1049,9 +1049,9 @@ class FootballMatch(Match):
 
 
 class BasketballMatch(Match):
-    best_player = models.ForeignKey(BasketballPlayer, null=True, on_delete=models.SET_NULL)
+    best_player = models.ForeignKey(BasketballPlayer, null=True, on_delete=models.SET_NULL, blank=True)
     league = models.ForeignKey(BasketballLeague, null=True, on_delete=models.SET_NULL)
-    match_minutes = models.PositiveSmallIntegerField(default=0)
+    match_minutes = models.PositiveSmallIntegerField(default=0, blank=True)
     team1 = models.ForeignKey(BasketballTeam, related_name='home_matches', on_delete=models.CASCADE)
     team2 = models.ForeignKey(BasketballTeam, related_name='away_matches', on_delete=models.CASCADE)
     team1_two_points = models.ManyToManyField(BasketballTwoPoint, related_name='home_match', blank=True)
@@ -1062,16 +1062,16 @@ class BasketballMatch(Match):
     team2_faults = models.ManyToManyField(BasketballFault, related_name='away_matches', blank=True)
     team1_penalty_faults = models.ManyToManyField(BasketballPenaltyFault, related_name='home_match', blank=True)
     team2_penalty_faults = models.ManyToManyField(BasketballPenaltyFault, related_name='away_matches', blank=True)
-    team1_final_score = models.PositiveSmallIntegerField()
-    team2_final_score = models.PositiveSmallIntegerField()
-    team1_first_quarter_score = models.PositiveSmallIntegerField()
-    team2_first_quarter_score = models.PositiveSmallIntegerField()
-    team1_second_quarter_score = models.PositiveSmallIntegerField()
-    team2_second_quarter_score = models.PositiveSmallIntegerField()
-    team1_third_quarter_score = models.PositiveSmallIntegerField()
-    team2_third_quarter_score = models.PositiveSmallIntegerField()
-    team1_fourth_quarter_score = models.PositiveSmallIntegerField()
-    team2_fourth_quarter_score = models.PositiveSmallIntegerField()
+    team1_final_score = models.PositiveSmallIntegerField(blank=True)
+    team2_final_score = models.PositiveSmallIntegerField(blank=True)
+    team1_first_quarter_score = models.PositiveSmallIntegerField(blank=True)
+    team2_first_quarter_score = models.PositiveSmallIntegerField(blank=True)
+    team1_second_quarter_score = models.PositiveSmallIntegerField(blank=True)
+    team2_second_quarter_score = models.PositiveSmallIntegerField(blank=True)
+    team1_third_quarter_score = models.PositiveSmallIntegerField(blank=True)
+    team2_third_quarter_score = models.PositiveSmallIntegerField(blank=True)
+    team1_fourth_quarter_score = models.PositiveSmallIntegerField(blank=True)
+    team2_fourth_quarter_score = models.PositiveSmallIntegerField(blank=True)
     team1_rebounds = models.ManyToManyField(BasketballRebound, related_name='home_match', blank=True)
     team2_rebounds = models.ManyToManyField(BasketballRebound, related_name='away_matches', blank=True)
     team1_penalty_failed = models.ManyToManyField(BasketballPenaltyFailed, related_name='home_match', blank=True)
@@ -1082,22 +1082,22 @@ class BasketballMatch(Match):
                                                 horizontal=True,
                                                 verbose_name='team1_main_players', chained_field="team1",
                                                 chained_model_field="team",
-                                                related_name='home_match_main')
+                                                related_name='home_match_main',blank=True)
     team1_substitute_players = ChainedManyToManyField(BasketballPlayer,
                                                       horizontal=True,
                                                       verbose_name='team1_substitute_players', chained_field="team1",
                                                       chained_model_field="team",
-                                                      related_name='home_match_substitute')
+                                                      related_name='home_match_substitute', blank=True)
     team2_main_players = ChainedManyToManyField(BasketballPlayer,
                                                 horizontal=True,
                                                 verbose_name='team2_main_players', chained_field="team2",
                                                 chained_model_field="team",
-                                                related_name='away_match_main')
+                                                related_name='away_match_main', blank=True)
     team2_substitute_players = ChainedManyToManyField(BasketballPlayer,
                                                       horizontal=True,
                                                       verbose_name='team2_substitute_players', chained_field="team2",
                                                       chained_model_field="team",
-                                                      related_name='away_match_substitute')
+                                                      related_name='away_match_substitute', blank=True)
     medias = models.ManyToManyField(Photos, blank=True)
     fringe_news = models.ManyToManyField('BasketballNews', related_name='home_match', blank=True)
 
