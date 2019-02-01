@@ -71,13 +71,20 @@ def news(request, news_title, news_id):
     return JsonResponse(json)
 
 
+@api_view(['GET'])
+@permission_classes((AllowAny,))
 def player(request, player_name, player_id):
     print(request.user)
+    logged_in = 'no'
+    if request.user.is_authenticated:
+        logged_in = 'yes'
     json = {
         'playerInfo': None,
         'playerRecords': None,
         'relatedNewsData': [],
-        'newsData': []
+        'newsData': [],
+        'logged_in': logged_in,
+        'subscribed': 'no'
     }
     player = get_object_or_404(Player, name=player_name, uid=player_id)
     summery_news = player.get_news(True, True, True)[:10]
@@ -86,6 +93,9 @@ def player(request, player_name, player_id):
         json['newsData'].append(news.get_slides_json())
     json['playerInfo'] = player.get_json()
     json['playerRecords'] = player.get_statistics_json()
+    if request.user.is_authenticated:
+        user = SiteUser.objects.get(username=request.user.username)
+        json['subscribed'] = 'yes' if user.favorite_players.all().filter(id=player.id).exists() else 'no'
     return JsonResponse(json)
 
 
@@ -139,7 +149,7 @@ def league(request, league_name, season_name, id):
     return JsonResponse(json)
 
 
-@api_view(['GET', 'POST'])
+@api_view(['GET'])
 @permission_classes((AllowAny,))
 def team(request, team_name, team_id):
     print(request.user)
@@ -152,7 +162,8 @@ def team(request, team_name, team_id):
         'newsData': [],
         'teamName': team_name,
         'logo': None,
-        'logged_in': logged_in
+        'logged_in': logged_in,
+        'subscribed': 'no'
     }
     team = Team.objects.get(name=team_name, uid=team_id)
     json['logo'] = team.logo.url
@@ -161,6 +172,10 @@ def team(request, team_name, team_id):
     summery_news = team.get_news(True, True, True)[:10]
     for news in summery_news:
         json['newsData'].append(news.get_summary_json())
+
+    if request.user.is_authenticated:
+        user = SiteUser.objects.get(username=request.user.username)
+        json['subscribed'] = 'yes' if user.favorite_teams.all().filter(id=team.id).exists() else 'no'
     return JsonResponse(json)
 
 
@@ -238,7 +253,7 @@ def signup(request):
     return Response({'message': 'user created‬'})
 
 
-@api_view(["POST"])
+@api_view(["GET"])
 @permission_classes((AllowAny,))
 def logout_user(request):
     logout(request)
@@ -291,25 +306,25 @@ def change_pass(request, user_id):
 @api_view(["POST"])
 @permission_classes((AllowAny,))
 def subscribe(request):
-    data = Json.loads(request.body.decode('utf-8'))
-    user = SiteUser.objects.get(username=data['username'])
-    if data['type'] == 'team1':
-        team = Team.objects.get(name=data['name'])
+    user = SiteUser.objects.get(username=request.POST['username'])
+    if request.POST['type'] == 'team1':
+        team = Team.objects.get(name=request.POST['name'])
         user.favorite_teams.add(team)
         user.save()
-    elif data['type'] == 'team0':
-        team = Team.objects.get(name=data['name'])
+    elif request.POST['type'] == 'team0':
+        team = Team.objects.get(name=request.POST['name'])
         try:
             user.favorite_teams.remove(team)
             user.save()
         except:
             pass
-    elif data['type'] == 'player1':
-        player = Player.objects.get(name=data['name'])
+    elif request.POST['type'] == 'player1':
+        player = Player.objects.get(name=request.POST['name'])
         user.favorite_players.add(player)
+        print(player.name, '\n\n\n')
         user.save()
-    elif data['type'] == 'player0':
-        player = Player.objects.get(name=data['name'])
+    elif request.POST['type'] == 'player0':
+        player = Player.objects.get(name=request.POST['name'])
         try:
             user.favorite_players.remove(player)
             user.save()

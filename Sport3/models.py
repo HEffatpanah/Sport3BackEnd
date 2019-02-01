@@ -1756,9 +1756,9 @@ class NewsSources(models.Model):
 
 
 class SiteUser(User):
-    favorite_home_news_number = models.SmallIntegerField(null=True)
-    favorite_teams = models.ManyToManyField(Team)
-    favorite_players = models.ManyToManyField(Player)
+    favorite_home_news_number = models.SmallIntegerField(null=True, blank=True)
+    favorite_teams = models.ManyToManyField(Team, blank=True)
+    favorite_players = models.ManyToManyField(Player, blank=True)
     confirm_id = models.CharField(max_length=30, editable=False, default='')
     confirmed = models.BooleanField(default=False)
 
