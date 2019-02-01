@@ -61,6 +61,8 @@ def home(request):
         json['football']['newsTable']['last'].append(f.get_summary_json())
     for f in last_basketball_news:
         json['basketball']['newsTable']['last'].append(f.get_summary_json())
+    json['football']['matchesTable']['tableBody'].append({'league_season': None, 'matches': []})
+    json['basketball']['matchesTable']['tableBody'].append({'league_season': None, 'matches': []})
     try:
         user = request.user
         site_user = SiteUser.objects.get(username=user.username)
@@ -76,20 +78,18 @@ def home(request):
         for news in summery_news:
             json['football']['newsTable']['favorite'].append(news.get_summary_json())
             json['basketball']['newsTable']['favorite'].append(news.get_summary_json())
+
+        football_matches = FootballMatch.objects.all()
+        basketball_matches = BasketballMatch.objects.all()
+        for match in football_matches:
+            if match.team1 in site_user.favorite_teams.all() or match.team2 in site_user.favorite_teams.all():
+                json['football']['matchesTable']['tableBody'][1]['matches'].append(match.get_summary_json())
+        for match in basketball_matches:
+            if match.team1 in site_user.favorite_teams.all() or match.team2 in site_user.favorite_teams.all():
+                json['basketball']['matchesTable']['tableBody'][1]['matches'].append(match.get_summary_json())
     except:
         json['football']['newsTable']['favorite'].append({'title': 'شما وارد نشده اید', 'link': ''})
         json['basketball']['newsTable']['favorite'].append({'title': 'شما وارد نشده اید', 'link': ''})
-
-    json['football']['matchesTable']['tableBody'].append({'league_season': None, 'matches': []})
-    json['basketball']['matchesTable']['tableBody'].append({'league_season': None, 'matches': []})
-    football_matches = FootballMatch.objects.all()
-    basketball_matches = BasketballMatch.objects.all()
-    for match in football_matches:
-        if match.team1 in site_user.favorite_teams.all() or match.team2 in site_user.favorite_teams.all():
-            json['football']['matchesTable']['tableBody'][1]['matches'].append(match.get_summary_json())
-    for match in basketball_matches:
-        if match.team1 in site_user.favorite_teams.all() or match.team2 in site_user.favorite_teams.all():
-            json['basketball']['matchesTable']['tableBody'][1]['matches'].append(match.get_summary_json())
     return JsonResponse(json)
 
 
