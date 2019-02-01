@@ -142,7 +142,7 @@ def player(request, player_name, player_id):
     return JsonResponse(json)
 
 
-@api_view(['GET'])
+@api_view(['GET','POST'])
 @permission_classes((AllowAny,))
 def league(request, league_name, season_name, id):
     print(request.user)
@@ -159,8 +159,15 @@ def league(request, league_name, season_name, id):
     else:
         league = get_object_or_404(League, name=league_name)
         half_season = get_object_or_404(HalfSeason, name=season_name, uid=id)
+    if request.method == "POST" and request.POST['type'] == 'mtach_weeks':
+        match = {
+            'matchSummaryData': [],
+        }
+        week = int(request.POST['week'])
+        match['matchSummaryData'] = league.get_matches_json(half_season,week)
+        return JsonResponse(match)
 
-    json['matchSummaryData'] = league.get_matches_json(half_season)
+    json['matchSummaryData'] = league.get_matches_json(half_season,0)
     json['teams'] = [league.get_teams_json(half_season)]
 
     football_leagues = FootballLeague.objects.all()

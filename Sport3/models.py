@@ -82,7 +82,7 @@ class League(PolymorphicModel):
     def get_teams_json(self, half_season):
         pass
 
-    def get_matches_json(self, half_season):
+    def get_matches_json(self, half_season,week):
         pass
 
     half_season = models.ManyToManyField(HalfSeason)
@@ -96,13 +96,17 @@ class League(PolymorphicModel):
 class FootballLeague(League):
     teams = models.ManyToManyField('FootballTeam')
 
-    def get_matches_json(self, half_season):
+    def get_matches_json(self, half_season,week):
         json = {
             'tableHeader': ['تیم اول', 'نتیجه', 'تیم دوم', 'تاریخ'],
             'tableBody': []
         }
         aux_json = {'league_season': self.name + '(' + str(half_season.name) + ')', 'matches': []}
-        matches = FootballMatch.objects.filter(league=self, half_season=half_season)
+
+        if week==0:
+            matches = FootballMatch.objects.filter(league=self, half_season=half_season)
+        else:
+            matches = FootballMatch.objects.filter(league=self, half_season=half_season,week=week)
         for match in matches:
             aux_json['matches'].append(match.get_summary_json())
         json['tableBody'].append(aux_json)
@@ -153,7 +157,7 @@ class FootballLeague(League):
 class BasketballLeague(League):
     teams = models.ManyToManyField('BasketballTeam')
 
-    def get_matches_json(self, half_season):
+    def get_matches_json(self, half_season,week):
         json = {
             'tableHeader': ['نام تیم', 'نتیجه', 'نام تیم', 'تاریخ'],
             'tableBody': []
