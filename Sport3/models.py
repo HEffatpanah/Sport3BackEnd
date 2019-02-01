@@ -25,13 +25,14 @@ def get_related_news(keys, sport, title_search, tags_search, body_search):
         if title_search:
             query |= Q(title__icontains=word)
         if body_search:
+            print("here")
             query |= Q(body_text__icontains=word)
         if tags_search:
             query |= Q(tags__name__icontains=word)
     if sport == 'football':
         results = FootballNews.objects.filter(query).all()
     elif sport == 'basketball':
-        results = FootballNews.objects.filter(query).all()
+        results = BasketballNews.objects.filter(query).all()
     return results
 
 

@@ -71,10 +71,21 @@ def news(request, news_title, news_id):
     return JsonResponse(json)
 
 
-@api_view(['GET'])
+@api_view(['GET','POST'])
 @permission_classes((AllowAny,))
 def player(request, player_name, player_id):
     print(request.user)
+    player = get_object_or_404(Player, name=player_name, uid=player_id)
+    if request.method == "POST" and request.POST['type'] == 'relatedNews':
+        json = {
+            'relatedNewsData': [],
+        }
+        mode = request.POST['mode']
+        summery_news = player.get_news(mode == '1', mode == '2', mode == '3')[:10]
+        print(summery_news.count())
+        for news in summery_news:
+            json['relatedNewsData'].append(news.get_summary_json())
+        return JsonResponse(json)
     logged_in = 'no'
     if request.user.is_authenticated:
         logged_in = 'yes'
@@ -86,7 +97,6 @@ def player(request, player_name, player_id):
         'logged_in': logged_in,
         'subscribed': 'no'
     }
-    player = get_object_or_404(Player, name=player_name, uid=player_id)
     summery_news = player.get_news(True, True, True)[:10]
     for news in summery_news:
         json['relatedNewsData'].append(news.get_summary_json())
@@ -149,34 +159,44 @@ def league(request, league_name, season_name, id):
     return JsonResponse(json)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @permission_classes((AllowAny,))
 def team(request, team_name, team_id):
     print(request.user)
-    logged_in = 'no'
-    if request.user.is_authenticated:
-        logged_in = 'yes'
-    json = {
-        'membersData': None,
-        'matchesData': None,
-        'newsData': [],
-        'teamName': team_name,
-        'logo': None,
-        'logged_in': logged_in,
-        'subscribed': 'no'
-    }
-    team = Team.objects.get(name=team_name, uid=team_id)
-    json['logo'] = team.logo.url
-    json['membersData'] = team.get_members_json()
-    json['matchData'] = team.get_matches_json()
-    summery_news = team.get_news(True, True, True)[:10]
-    for news in summery_news:
-        json['newsData'].append(news.get_summary_json())
+    team = get_object_or_404(Team, name=team_name, uid=team_id)
+    if request.method == "POST" and request.POST['type'] == 'relatedNews':
+        json = {
+            'newsData': [],
+        }
+        mode = request.POST['mode']
+        summery_news = team.get_news(mode == '1', mode == '2', mode == '3')[:10]
+        for news in summery_news:
+            json['newsData'].append(news.get_summary_json())
+        return JsonResponse(json)
+    else:
+        logged_in = 'no'
+        if request.user.is_authenticated:
+            logged_in = 'yes'
+        json = {
+            'membersData': None,
+            'matchesData': None,
+            'newsData': [],
+            'teamName': team_name,
+            'logo': None,
+            'logged_in': logged_in,
+            'subscribed': 'no'
+        }
+        json['logo'] = team.logo.url
+        json['membersData'] = team.get_members_json()
+        json['matchData'] = team.get_matches_json()
+        summery_news = team.get_news(True, True, True)[:10]
+        for news in summery_news:
+            json['newsData'].append(news.get_summary_json())
 
-    if request.user.is_authenticated:
-        user = SiteUser.objects.get(username=request.user.username)
-        json['subscribed'] = 'yes' if user.favorite_teams.all().filter(id=team.id).exists() else 'no'
-    return JsonResponse(json)
+        if request.user.is_authenticated:
+            user = SiteUser.objects.get(username=request.user.username)
+            json['subscribed'] = 'yes' if user.favorite_teams.all().filter(id=team.id).exists() else 'no'
+        return JsonResponse(json)
 
 
 @api_view(['GET'])
