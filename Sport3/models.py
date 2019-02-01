@@ -25,13 +25,14 @@ def get_related_news(keys, sport, title_search, tags_search, body_search):
         if title_search:
             query |= Q(title__icontains=word)
         if body_search:
+            print("here")
             query |= Q(body_text__icontains=word)
         if tags_search:
             query |= Q(tags__name__icontains=word)
     if sport == 'football':
         results = FootballNews.objects.filter(query).all()
     elif sport == 'basketball':
-        results = FootballNews.objects.filter(query).all()
+        results = BasketballNews.objects.filter(query).all()
     return results
 
 
@@ -410,7 +411,7 @@ class FootballPlayer(Player):
 
     def get_news(self, title_serach, tags_serach, body_serach):
         keys = [self.name]
-        related_news = get_related_news(keys, 'basketball', title_serach, tags_serach, body_serach).order_by(
+        related_news = get_related_news(keys, 'football', title_serach, tags_serach, body_serach).order_by(
             '-date_time')
         return related_news
 
